@@ -12,8 +12,7 @@ st.set_page_config(
 
 # ── Configure Google Gemini ────────────────────────────────────────────────────
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-model = genai.GenerativeModel("models/gemini-1.5-flash")
-
+model = genai.GenerativeModel("gemini-2.0-flash")
 # ── Global CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
