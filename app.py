@@ -203,7 +203,7 @@ MARKET_LISTINGS = [
 col_logo, col_live = st.columns([5, 1])
 with col_logo:
     st.markdown("<h1 style='font-family:Playfair Display,serif;color:#81C784;margin:0;font-size:1.8rem;'>🌍 EcoPulse</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='font-family:Space Mono,monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;margin:0;'>CCIC 2026 · MAKERERE UNIVERSITY</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-family:Space Mono,monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;margin:0;'> Elias Creation</p>", unsafe_allow_html=True)
 with col_live:
     st.markdown("<div class='badge badge-live' style='margin-top:12px;'>🟢 LIVE</div>", unsafe_allow_html=True)
 
@@ -489,6 +489,6 @@ with tab_market:
 st.markdown("""
 <hr style='border-color:rgba(76,175,80,0.1);margin:32px 0 16px;'>
 <p style='text-align:center;font-family:Space Mono,monospace;font-size:0.65rem;color:#37474F;letter-spacing:1px;'>
-ECOPULSE · CCIC 2026 · MAKERERE UNIVERSITY STUDENTS GUILD · POWERED BY GROQ LLAMA 3
+ECOPULSE · CCIC 2026 · elias productions · POWERED BY GROQ LLAMA 3
 </p>
 """, unsafe_allow_html=True)
