@@ -1,5 +1,5 @@
-﻿import streamlit as st
-import google.generativeai as genai
+import streamlit as st
+from groq import Groq
 import pandas as pd
 
 # ── Page config ────────────────────────────────────────────────────────────────
@@ -10,9 +10,25 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── Configure Google Gemini ────────────────────────────────────────────────────
-genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-model = genai.GenerativeModel("gemini-2.0-flash")
+# ── Configure Groq ─────────────────────────────────────────────────────────────
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+def ask_groq(system_prompt, user_message, history=None):
+    try:
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            for m in history[-6:]:
+                messages.append({"role": m["role"], "content": m["content"]})
+        messages.append({"role": "user", "content": user_message})
+        response = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=messages,
+            max_tokens=1000,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error: {str(e)}"
+
 # ── Global CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -84,8 +100,8 @@ h1, h2, h3 { font-family: 'Playfair Display', serif !important; }
 .alert-warning { background: rgba(255,152,0,0.1);  border: 1px solid rgba(255,152,0,0.3);  border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
 .alert-info    { background: rgba(33,150,243,0.1); border: 1px solid rgba(33,150,243,0.3); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
 .alert-success { background: rgba(76,175,80,0.1);  border: 1px solid rgba(76,175,80,0.3);  border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
-.alert-text   { color: #e8f5e9; font-size: 0.88rem; line-height: 1.6; }
-.alert-region { font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
+.alert-text    { color: #e8f5e9; font-size: 0.88rem; line-height: 1.6; }
+.alert-region  { font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
 
 .market-card  {
     background: rgba(255,255,255,0.04);
@@ -152,18 +168,6 @@ div[data-testid="stTabs"] button {
 </style>
 """, unsafe_allow_html=True)
 
-# ── Helper: Ask Gemini ─────────────────────────────────────────────────────────
-def ask_gemini(system_prompt, user_message, history=None):
-    try:
-        full_prompt = f"{system_prompt}\n\nUser: {user_message}"
-        if history:
-            history_text = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in history[-6:]])
-            full_prompt = f"{system_prompt}\n\nConversation so far:\n{history_text}\n\nUser: {user_message}"
-        response = model.generate_content(full_prompt)
-        return response.text
-    except Exception as e:
-        return f"Error getting response: {str(e)}"
-
 # ── Data ───────────────────────────────────────────────────────────────────────
 WASTE_CATEGORIES = [
     {"name": "Organic / Food Waste",  "icon": "🍌", "color": "#4CAF50", "tip": "Compost food scraps into rich soil fertilizer for farms."},
@@ -187,12 +191,12 @@ ALERTS = [
 ]
 
 MARKET_LISTINGS = [
-    {"title":"Organic Compost — 50kg bags",        "seller":"Kakooza Farms",  "location":"Wakiso",  "price":"UGX 25,000",     "type":"sell","tag":"Waste-to-Value"},
-    {"title":"Solar Water Pump — rental",           "seller":"GreenTech Hub",  "location":"Kampala", "price":"UGX 15,000/day", "type":"sell","tag":"Clean Energy"},
-    {"title":"Wanted: Crop Residue (Maize stalks)", "seller":"BioGas Uganda",  "location":"Jinja",   "price":"UGX 8,000/bale", "type":"buy", "tag":"Circular Economy"},
+    {"title":"Organic Compost — 50kg bags",        "seller":"Kakooza Farms",  "location":"Wakiso",  "price":"UGX 25,000",      "type":"sell","tag":"Waste-to-Value"},
+    {"title":"Solar Water Pump — rental",           "seller":"GreenTech Hub",  "location":"Kampala", "price":"UGX 15,000/day",  "type":"sell","tag":"Clean Energy"},
+    {"title":"Wanted: Crop Residue (Maize stalks)", "seller":"BioGas Uganda",  "location":"Jinja",   "price":"UGX 8,000/bale",  "type":"buy", "tag":"Circular Economy"},
     {"title":"Surplus Tomatoes — urgent sale",      "seller":"Nakato Agri",    "location":"Mbarara", "price":"UGX 10,000/crate","type":"sell","tag":"Fresh Produce"},
-    {"title":"Drip Irrigation Kit — 1 acre",        "seller":"SmartFarm Ltd",  "location":"Entebbe", "price":"UGX 320,000",    "type":"sell","tag":"AgriTech"},
-    {"title":"Wanted: Plastic scrap (PET)",         "seller":"RecycleMore UG", "location":"Kampala", "price":"UGX 500/kg",     "type":"buy", "tag":"Recycling"},
+    {"title":"Drip Irrigation Kit — 1 acre",        "seller":"SmartFarm Ltd",  "location":"Entebbe", "price":"UGX 320,000",     "type":"sell","tag":"AgriTech"},
+    {"title":"Wanted: Plastic scrap (PET)",         "seller":"RecycleMore UG", "location":"Kampala", "price":"UGX 500/kg",      "type":"buy", "tag":"Recycling"},
 ]
 
 # ── HEADER ──────────────────────────────────────────────────────────────────────
@@ -275,16 +279,16 @@ with tab_home:
 with tab_farm:
     st.markdown("""
     <div style="background:linear-gradient(135deg,#1a4731,#2d7a4f);border-radius:16px;padding:20px 22px;margin-bottom:20px;">
-        <p class="section-label" style="color:#a8e6bf;">AI-POWERED · GOOGLE GEMINI</p>
+        <p class="section-label" style="color:#a8e6bf;">AI-POWERED · GROQ LLAMA 3</p>
         <h2 style="font-family:'Playfair Display',serif;color:#fff;margin:4px 0;font-size:1.5rem;">🌾 Farm Advisory</h2>
         <p style="color:#a8e6bf;font-size:0.82rem;margin:0;">Ask anything about crops, soil, pests, water & climate-smart farming in Uganda.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    FARM_SYSTEM = """You are an expert agricultural advisor specializing in Ugandan farming conditions, 
-    climate resilience, and sustainable agriculture. Give practical, actionable advice. 
+    FARM_SYSTEM = """You are an expert agricultural advisor specializing in Ugandan farming conditions,
+    climate resilience, and sustainable agriculture. Give practical, actionable advice.
     Mention specific crops, regions, and techniques relevant to Uganda.
-    Connect farming to waste management and circular economy where relevant. 
+    Connect farming to waste management and circular economy where relevant.
     Keep answers clear, structured and useful for Ugandan farmers."""
 
     if "farm_messages" not in st.session_state:
@@ -304,9 +308,9 @@ with tab_farm:
 
     if submitted and user_input.strip():
         st.session_state.farm_messages.append({"role": "user", "content": user_input})
-        history = st.session_state.farm_messages[:-1]
+        history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.farm_messages[:-1]]
         with st.spinner("Getting AI advice…"):
-            reply = ask_gemini(FARM_SYSTEM, user_input, history)
+            reply = ask_groq(FARM_SYSTEM, user_input, history)
         st.session_state.farm_messages.append({"role": "assistant", "content": reply})
         st.rerun()
 
@@ -349,11 +353,11 @@ with tab_waste:
     """, unsafe_allow_html=True)
 
     if st.button("🤖 Get Detailed AI Tips for this Waste Type"):
-        WASTE_SYSTEM = """You are a circular economy expert specializing in Uganda. 
-        Give practical numbered tips. Show how waste generates income or benefits farmers. 
-        Be concise — max 2 sentences per point."""
+        WASTE_SYSTEM = """You are a circular economy expert specializing in Uganda.
+        Give 3 practical numbered tips. Show how each waste type can generate income or benefit farmers.
+        Be concise — max 2 sentences per point. Focus on Uganda-specific solutions."""
         with st.spinner("Generating Uganda-specific circular economy tips…"):
-            tip = ask_gemini(
+            tip = ask_groq(
                 WASTE_SYSTEM,
                 f"Give me 3 practical Uganda-specific circular economy tips for managing: {selected_waste}"
             )
@@ -485,6 +489,6 @@ with tab_market:
 st.markdown("""
 <hr style='border-color:rgba(76,175,80,0.1);margin:32px 0 16px;'>
 <p style='text-align:center;font-family:Space Mono,monospace;font-size:0.65rem;color:#37474F;letter-spacing:1px;'>
-ECOPULSE · CCIC 2026 · MAKERERE UNIVERSITY STUDENTS GUILD · POWERED BY GOOGLE GEMINI
+ECOPULSE · CCIC 2026 · MAKERERE UNIVERSITY STUDENTS GUILD · POWERED BY GROQ LLAMA 3
 </p>
 """, unsafe_allow_html=True)
