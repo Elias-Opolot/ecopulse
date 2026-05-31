@@ -323,7 +323,7 @@ def show_main_app():
     col_logo, col_user, col_signout = st.columns([4, 2, 1])
     with col_logo:
         st.markdown("<h1 style='font-family:Playfair Display,serif;color:#81C784;margin:0;font-size:1.8rem;'>🌍 EcoPulse</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='font-family:Space Mono,monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;margin:0;'>CCIC 2026 · MAKERERE UNIVERSITY</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-family:Space Mono,monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;margin:0;'>ecopulse · ELIAS CREATIONS</p>", unsafe_allow_html=True)
     with col_user:
         st.markdown(f"""
         <div style="text-align:right;margin-top:8px;">
@@ -710,6 +710,6 @@ else:
 st.markdown("""
 <hr style='border-color:rgba(76,175,80,0.1);margin:32px 0 16px;'>
 <p style='text-align:center;font-family:Space Mono,monospace;font-size:0.65rem;color:#37474F;letter-spacing:1px;'>
-ECOPULSE · CCIC 2026 · MAKERERE UNIVERSITY STUDENTS GUILD · POWERED BY GROQ LLAMA 3
+ECOPULSE · CCIC 2026 · ELIAS CREATIONS· POWERED BY GROQ LLAMA 3
 </p>
 """, unsafe_allow_html=True)
