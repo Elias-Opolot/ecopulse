@@ -9,7 +9,7 @@ from datetime import datetime
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="EcoPulse | CCIC 2026",
+    page_title="EcoPulse ",
     page_icon="🌍",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -241,7 +241,7 @@ def show_auth():
     st.markdown("""
     <div style="text-align:center;margin-bottom:28px;">
         <h1 style="font-family:'Playfair Display',serif;color:#81C784;font-size:2rem;margin:0;">🌍 EcoPulse</h1>
-        <p style="font-family:'Space Mono',monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;">CCIC 2026 · MAKERERE UNIVERSITY</p>
+        <p style="font-family:'Space Mono',monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;">ELIAS CREATION</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -710,6 +710,6 @@ else:
 st.markdown("""
 <hr style='border-color:rgba(76,175,80,0.1);margin:32px 0 16px;'>
 <p style='text-align:center;font-family:Space Mono,monospace;font-size:0.65rem;color:#37474F;letter-spacing:1px;'>
-ECOPULSE · CCIC 2026 · ELIAS CREATIONS· POWERED BY GROQ LLAMA 3
+ECOPULSE · CCIC 2026 · ELIAS CREATIONS REACH OUT ON 0705046024· POWERED BY GROQ LLAMA 3
 </p>
 """, unsafe_allow_html=True)
