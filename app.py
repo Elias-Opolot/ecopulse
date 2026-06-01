@@ -9,7 +9,7 @@ from datetime import datetime
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="EcoPulse | CCIC 2026",
+    page_title="EcoPulse",
     page_icon="🌍",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -267,7 +267,7 @@ def show_auth():
     st.markdown("""
     <div style="text-align:center;margin-bottom:28px;">
         <h1 style="font-family:'Playfair Display',serif;color:#81C784;font-size:2.4rem;margin:0;">🌍 EcoPulse</h1>
-        <p style="font-family:'Space Mono',monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;">CCIC 2026 · MAKERERE UNIVERSITY</p>
+        <p style="font-family:'Space Mono',monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;">ELIAS CREATIONS</p>
         <p style="color:#90A4AE;font-size:0.85rem;margin-top:8px;">Uganda's AI-powered green revolution platform</p>
     </div>
     """, unsafe_allow_html=True)
@@ -345,7 +345,7 @@ def show_main_app():
     col_logo, col_user, col_out = st.columns([4, 2, 1])
     with col_logo:
         st.markdown("<h1 style='font-family:Playfair Display,serif;color:#81C784;margin:0;font-size:1.8rem;'>🌍 EcoPulse</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='font-family:Space Mono,monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;margin:0;'>CCIC 2026 · MAKERERE UNIVERSITY</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-family:Space Mono,monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;margin:0;'>ELIAS CREATION</p>", unsafe_allow_html=True)
     with col_user:
         st.markdown(f"""
         <div style="text-align:right;margin-top:8px;">
@@ -407,8 +407,8 @@ def show_main_app():
         <div class="quote-box">
             <p class="section-label">THEME 2026</p>
             <p style="font-family:'Playfair Display',serif;font-style:italic;color:#c8e6c9;font-size:1rem;line-height:1.7;margin:6px 0;">
-            "Empowering University Students to Design Real Solutions for Climate Resilience"</p>
-            <p style="color:#66BB6A;font-size:0.8rem;margin:0;">Makerere University Students Guild · CCIC 2026</p>
+            "Empowering Farmers on smart farming"</p>
+            <p style="color:#66BB6A;font-size:0.8rem;margin:0;">ELIAS CREATIONS</p>
         </div>""", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -825,5 +825,5 @@ else:
 st.markdown("""
 <hr style='border-color:rgba(76,175,80,0.1);margin:32px 0 16px;'>
 <p style='text-align:center;font-family:Space Mono,monospace;font-size:0.65rem;color:#37474F;letter-spacing:1px;'>
-ECOPULSE · CCIC 2026 · MAKERERE UNIVERSITY STUDENTS GUILD · POWERED BY GROQ + SUPABASE
+ECOPULSE · Elias Creations Reasch out to 0705046024 for any inquiries · POWERED BY GROQ + SUPABASE
 </p>""", unsafe_allow_html=True)
