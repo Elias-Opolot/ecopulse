@@ -217,7 +217,7 @@ def ask_groq_vision(user_message, image_base64, image_type="image/jpeg"):
         if image_type not in ["image/jpeg","image/png","image/gif","image/webp"]:
             image_type = "image/jpeg"
         response = groq_client.chat.completions.create(
-            model="llama-3.2-11b-vision-preview",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[{
                 "role": "user",
                 "content": [
