@@ -242,16 +242,29 @@ def ask_groq_vision(user_message, image_base64, image_type="image/jpeg"):
 def generate_image(description):
     """Generate image using Pollinations.ai — completely free, no API key"""
     try:
-        # First improve the prompt with Groq
         prompt_resp = groq_client.chat.completions.create(
             model="openai/gpt-oss-120b",
             messages=[{
                 "role": "user",
-                "content": f"Write a short, vivid image generation prompt (max 60 words) for: {description}. Focus on Ugandan farming. Be descriptive about colors, lighting, setting. No harmful content."
+                "content": f"Write a short, vivid image generation prompt (max 60 words) for: {description}. Focus on Ugandan farming. Be descriptive about colors, lighting, setting. No harmful content. Reply with ONLY the prompt text, nothing else."
             }],
-            max_tokens=100,
+            max_tokens=150,
+            reasoning_effort="low",
         )
         improved_prompt = prompt_resp.choices[0].message.content.strip()
+        # Strip any leftover reasoning/markdown artifacts
+        improved_prompt = improved_prompt.replace("**", "").replace("Prompt:", "").strip()
+        if not improved_prompt:
+            improved_prompt = description
+        encoded = requests.utils.quote(improved_prompt)
+        import random
+        seed = random.randint(1, 9999)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true&enhance=true"
+        return url, improved_prompt
+    except Exception as e:
+        encoded = requests.utils.quote(description[:200])
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true"
+        return url, description
         # Clean prompt for URL
         encoded = requests.utils.quote(improved_prompt)
         # Use Pollinations with a seed for consistency
