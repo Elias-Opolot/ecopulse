@@ -204,7 +204,7 @@ def ask_groq(system_prompt, user_message, history=None):
                 messages.append({"role": m["role"], "content": m["content"]})
         messages.append({"role": "user", "content": user_message})
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile", messages=messages, max_tokens=1200,
+            model="openai/gpt-oss-120b", messages=messages, max_tokens=1200,
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -244,7 +244,7 @@ def generate_image(description):
     try:
         # First improve the prompt with Groq
         prompt_resp = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{
                 "role": "user",
                 "content": f"Write a short, vivid image generation prompt (max 60 words) for: {description}. Focus on Ugandan farming. Be descriptive about colors, lighting, setting. No harmful content."
@@ -268,7 +268,7 @@ def generate_image(description):
 def get_realtime_info(query):
     try:
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[
                 {"role":"system","content":"You are an expert on Uganda agriculture, climate, and environment with knowledge up to 2026. Give specific, practical, Uganda-focused information."},
                 {"role":"user","content":f"Give latest information about: {query}\nFocus on Uganda 2025-2026."}
