@@ -5,6 +5,7 @@ import pandas as pd
 import base64
 import hashlib
 import requests
+import random
 from datetime import datetime
 
 # ── Page config ────────────────────────────────────────────────────────────────
@@ -19,6 +20,10 @@ st.set_page_config(
 groq_client  = Groq(api_key=st.secrets["GROQ_API_KEY"])
 supa: Client = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 SECRET_KEY   = st.secrets.get("CHAT_SECRET", "ecopulse-ccic-2026")
+PEXELS_KEY   = st.secrets.get("PEXELS_API_KEY", "")
+
+TEXT_MODEL = "openai/gpt-oss-120b"
+VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 # ── Encryption ─────────────────────────────────────────────────────────────────
 def encrypt_message(text: str) -> str:
@@ -204,7 +209,7 @@ def ask_groq(system_prompt, user_message, history=None):
                 messages.append({"role": m["role"], "content": m["content"]})
         messages.append({"role": "user", "content": user_message})
         response = groq_client.chat.completions.create(
-            model="openai/gpt-oss-120b", messages=messages, max_tokens=1200,
+            model=TEXT_MODEL, messages=messages, max_tokens=1200,
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -213,24 +218,15 @@ def ask_groq(system_prompt, user_message, history=None):
 def ask_groq_vision(user_message, image_base64, image_type="image/jpeg"):
     """Analyze a farm photo using Groq vision model"""
     try:
-        # Ensure image type is valid
         if image_type not in ["image/jpeg","image/png","image/gif","image/webp"]:
             image_type = "image/jpeg"
         response = groq_client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            model=VISION_MODEL,
             messages=[{
                 "role": "user",
                 "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{image_type};base64,{image_base64}"
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": f"You are an expert Ugandan agricultural advisor. {user_message}"
-                    }
+                    {"type": "image_url", "image_url": {"url": f"data:{image_type};base64,{image_base64}"}},
+                    {"type": "text", "text": f"You are an expert Ugandan agricultural advisor. {user_message}"}
                 ]
             }],
             max_tokens=1000,
@@ -239,49 +235,10 @@ def ask_groq_vision(user_message, image_base64, image_type="image/jpeg"):
     except Exception as e:
         return f"Vision error: {str(e)}"
 
-def generate_image(description):
-    """Generate image using Pollinations.ai — completely free, no API key"""
-    try:
-        prompt_resp = groq_client.chat.completions.create(
-            model="openai/gpt-oss-120b",
-            messages=[{
-                "role": "user",
-                "content": f"Write a short, vivid image generation prompt (max 60 words) for: {description}. Focus on Ugandan farming. Be descriptive about colors, lighting, setting. No harmful content. Reply with ONLY the prompt text, nothing else."
-            }],
-            max_tokens=150,
-            reasoning_effort="low",
-        )
-        improved_prompt = prompt_resp.choices[0].message.content.strip()
-        # Strip any leftover reasoning/markdown artifacts
-        improved_prompt = improved_prompt.replace("**", "").replace("Prompt:", "").strip()
-        if not improved_prompt:
-            improved_prompt = description
-        encoded = requests.utils.quote(improved_prompt)
-        import random
-        seed = random.randint(1, 9999)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true&enhance=true"
-        return url, improved_prompt
-    except Exception as e:
-        encoded = requests.utils.quote(description[:200])
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true"
-        return url, description
-        # Clean prompt for URL
-        encoded = requests.utils.quote(improved_prompt)
-        # Use Pollinations with a seed for consistency
-        import random
-        seed = random.randint(1, 9999)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true&enhance=true"
-        return url, improved_prompt
-    except Exception as e:
-        # Fallback: use description directly
-        encoded = requests.utils.quote(description[:200])
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true"
-        return url, description
-
 def get_realtime_info(query):
     try:
         response = groq_client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=TEXT_MODEL,
             messages=[
                 {"role":"system","content":"You are an expert on Uganda agriculture, climate, and environment with knowledge up to 2026. Give specific, practical, Uganda-focused information."},
                 {"role":"user","content":f"Give latest information about: {query}\nFocus on Uganda 2025-2026."}
@@ -292,10 +249,106 @@ def get_realtime_info(query):
     except Exception as e:
         return f"Error: {str(e)}"
 
+# ── Image: real photo search, AI generation, architectural plans ───────────────
+def search_real_photo(query):
+    """Search Pexels for a real, existing photo matching the query"""
+    if not PEXELS_KEY:
+        return None
+    try:
+        headers = {"Authorization": PEXELS_KEY}
+        params = {"query": query, "per_page": 1, "orientation": "landscape"}
+        r = requests.get("https://api.pexels.com/v1/search", headers=headers, params=params, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            photos = data.get("photos", [])
+            if photos:
+                photo = photos[0]
+                return {
+                    "url": photo["src"]["large"],
+                    "photographer": photo.get("photographer", "Unknown"),
+                    "source": "real_photo",
+                }
+        return None
+    except Exception:
+        return None
+
+def generate_ai_image(description):
+    """Fallback: generate an AI image using Pollinations.ai"""
+    try:
+        prompt_resp = groq_client.chat.completions.create(
+            model=TEXT_MODEL,
+            messages=[{
+                "role": "user",
+                "content": f"Write a short, vivid image generation prompt (max 60 words) for: {description}. Focus on Ugandan farming context. Be descriptive about colors, lighting, setting. No harmful content. Reply with ONLY the prompt text, nothing else."
+            }],
+            max_tokens=150,
+            reasoning_effort="low",
+        )
+        improved_prompt = prompt_resp.choices[0].message.content.strip()
+        improved_prompt = improved_prompt.replace("**", "").replace("Prompt:", "").strip()
+        if not improved_prompt:
+            improved_prompt = description
+        encoded = requests.utils.quote(improved_prompt)
+        seed = random.randint(1, 9999)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true&enhance=true"
+        return {"url": url, "prompt": improved_prompt, "source": "ai_generated"}
+    except Exception:
+        encoded = requests.utils.quote(description[:200])
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true"
+        return {"url": url, "prompt": description, "source": "ai_generated"}
+
+def generate_architectural_plan(description):
+    """Generate a simple architectural/structural plan diagram (e.g. animal housing layout)"""
+    try:
+        prompt_resp = groq_client.chat.completions.create(
+            model=TEXT_MODEL,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Write a short image generation prompt (max 60 words) for a simple, clean "
+                    f"2D architectural floor plan / blueprint diagram of: {description}. "
+                    f"Style: technical line drawing, top-down view, labeled sections, white background, "
+                    f"black outlines, blueprint/schematic style, no photorealism, no color. "
+                    f"Reply with ONLY the prompt text, nothing else."
+                )
+            }],
+            max_tokens=150,
+            reasoning_effort="low",
+        )
+        improved_prompt = prompt_resp.choices[0].message.content.strip()
+        improved_prompt = improved_prompt.replace("**", "").replace("Prompt:", "").strip()
+        if not improved_prompt:
+            improved_prompt = f"architectural blueprint floor plan of {description}, technical line drawing, top-down view, labeled, black and white"
+        encoded = requests.utils.quote(improved_prompt)
+        seed = random.randint(1, 9999)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true"
+        return {"url": url, "prompt": improved_prompt, "source": "architectural_plan"}
+    except Exception:
+        encoded = requests.utils.quote(f"blueprint floor plan {description}")
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true"
+        return {"url": url, "prompt": description, "source": "architectural_plan"}
+
+def get_image(description, mode="auto"):
+    """
+    mode = 'auto'  -> try real photo first, fallback to AI generation
+    mode = 'photo' -> real photo only
+    mode = 'ai'    -> AI generation only
+    mode = 'plan'  -> architectural/technical plan
+    """
+    if mode == "plan":
+        return generate_architectural_plan(description)
+    if mode in ("auto", "photo"):
+        real = search_real_photo(description)
+        if real:
+            return real
+        if mode == "photo":
+            return None
+    return generate_ai_image(description)
+
 # ── Session state ──────────────────────────────────────────────────────────────
 DEFAULTS = {
     "current_user": None, "user_data": None,
-    "farm_messages": [{"role":"assistant","content":"Hello! I'm your AI Farm Advisor 🌾\n\nI can:\n• Answer farming questions with Uganda context\n• Analyze photos of your crops, soil or pests\n• Generate farm visualisation images\n• Give real-time climate and market info"}],
+    "farm_messages": [{"role":"assistant","content":"Hello! I'm your AI Farm Advisor 🌾\n\nI can:\n• Answer farming questions with Uganda context\n• Analyze photos of your crops, soil or pests\n• Find real photos or generate AI/architectural images\n• Give real-time climate and market info"}],
     "active_room": "general",
     "user_lat": None, "user_lon": None,
     "location_permission": False,
@@ -304,6 +357,8 @@ DEFAULTS = {
     "active_tab": "home",
     "generated_image_url": None,
     "generated_image_prompt": None,
+    "generated_image_source": None,
+    "generated_image_credit": None,
     "diagnosis_result": None,
 }
 for k, v in DEFAULTS.items():
@@ -436,7 +491,6 @@ ALERT_SOUND_JS = """
 </script>
 """
 
-# Navigate to tab via JS
 def nav_to_tab_js(tab_label):
     st.components.v1.html(f"""
     <script>
@@ -575,14 +629,12 @@ def show_main_app():
     read_location_from_params()
     fetch_weather(user_data)
 
-    # Floating alerts
     if st.session_state.weather_data:
         loc_name = st.session_state.weather_location or user_data.get("district","Uganda")
         alerts = parse_weather_alerts(st.session_state.weather_data, loc_name)
         if alerts:
             show_floating_alerts(alerts)
 
-    # Header
     c_logo, c_user, c_out = st.columns([4,2,1])
     with c_logo:
         st.markdown("<h1 style='font-family:Playfair Display,serif;color:#81C784;margin:0;font-size:1.8rem;'>🌍 EcoPulse</h1>", unsafe_allow_html=True)
@@ -608,7 +660,7 @@ def show_main_app():
     ])
 
     # ══════════════════════════════════════════════════════════════════════════
-    # HOME — clickable feature cards
+    # HOME
     # ══════════════════════════════════════════════════════════════════════════
     with tab_home:
         st.markdown(f"""
@@ -629,7 +681,7 @@ def show_main_app():
             st.markdown("""<div class="feature-card feature-card-green">
                 <div style="font-size:2.2rem;">🌾</div>
                 <div style="font-weight:800;color:#fff;font-size:0.95rem;margin:6px 0 4px;">Farm AI Advisor</div>
-                <div style="color:#90A4AE;font-size:0.78rem;line-height:1.5;margin-bottom:8px;">Ask AI, diagnose crop photos, generate farm images & get real-time Uganda farming info.</div>
+                <div style="color:#90A4AE;font-size:0.78rem;line-height:1.5;margin-bottom:8px;">Ask AI, diagnose crop photos, find real or AI-generated images & get real-time Uganda farming info.</div>
             </div>""", unsafe_allow_html=True)
             if st.button("🌾 Open Farm AI", key="go_farm", use_container_width=True):
                 nav_to_tab_js("Farm AI")
@@ -686,12 +738,12 @@ def show_main_app():
     with tab_farm:
         st.markdown("""
         <div style="background:linear-gradient(135deg,#1a4731,#2d7a4f);border-radius:16px;padding:20px 22px;margin-bottom:20px;">
-            <p class="section-label" style="color:#a8e6bf;">AI-POWERED · REAL-TIME · IMAGE GENERATION</p>
+            <p class="section-label" style="color:#a8e6bf;">AI-POWERED · REAL-TIME · REAL PHOTOS · AI IMAGES</p>
             <h2 style="font-family:'Playfair Display',serif;color:#fff;margin:4px 0;font-size:1.5rem;">🌾 Farm Advisory</h2>
-            <p style="color:#a8e6bf;font-size:0.82rem;margin:0;">Ask questions · Upload crop photos for diagnosis · Generate farm images</p>
+            <p style="color:#a8e6bf;font-size:0.82rem;margin:0;">Ask questions · Upload crop photos for diagnosis · Find real photos or generate images</p>
         </div>""", unsafe_allow_html=True)
 
-        farm_sub1, farm_sub2, farm_sub3 = st.tabs(["💬 Ask AI","📷 Photo Diagnosis","🎨 Generate Image"])
+        farm_sub1, farm_sub2, farm_sub3 = st.tabs(["💬 Ask AI","📷 Photo Diagnosis","🖼️ Find/Generate Image"])
 
         # ── ASK AI ──────────────────────────────────────────────────────────────
         with farm_sub1:
@@ -756,7 +808,6 @@ def show_main_app():
                             farm_image.seek(0)
                             img_bytes = farm_image.read()
                             img_b64   = base64.b64encode(img_bytes).decode("utf-8")
-                            # Normalize image type
                             raw_type  = farm_image.type or "image/jpeg"
                             if "png" in raw_type:
                                 img_type = "image/png"
@@ -780,33 +831,39 @@ def show_main_app():
                     st.session_state.diagnosis_result = None
                     st.rerun()
 
-        # ── IMAGE GENERATION ────────────────────────────────────────────────────
+        # ── FIND / GENERATE IMAGE ───────────────────────────────────────────────
         with farm_sub3:
             st.markdown("""<div class="image-tip">
-            🎨 Describe any farm scene and AI will generate a realistic image for you. Works best with specific descriptions.
+            🖼️ Search for a real photo, generate an AI image, or create a simple architectural plan (e.g. animal housing).
             </div>""", unsafe_allow_html=True)
+
+            image_mode = st.radio(
+                "What do you need?",
+                ["📷 Real Photo (search the web)", "🎨 AI Generated Image", "📐 Architectural Plan / Diagram"],
+                key="image_mode_select"
+            )
 
             quick_prompt = st.selectbox("Choose a quick example or type your own below:", [
                 "— Type your own description below —",
-                "Healthy maize farm in Uganda with green rows of tall plants",
-                "Drip irrigation system on a small Uganda farm",
-                "Severe soil erosion on a hillside farm Uganda",
-                "Organic compost pit beside a Uganda farmhouse",
-                "Banana plantation in Western Uganda lush green",
-                "Coffee farm in Bugisu region Uganda sunrise",
-                "Tomato greenhouse farming in Uganda",
-                "Ugandan farmer applying organic fertilizer in the field",
-                "Flooded farmland after heavy rains Uganda",
+                "Healthy maize farm in Uganda",
+                "Dairy cow in a Uganda farm",
+                "Drip irrigation system on a small farm",
+                "Goat shed / animal house",
+                "Chicken coop / poultry house",
+                "Organic compost pit",
+                "Banana plantation in Western Uganda",
+                "Coffee farm in Bugisu region",
+                "Tomato greenhouse farming",
+                "Flooded farmland after heavy rains",
             ], key="quick_img")
 
             custom_prompt = st.text_area(
                 "Or describe your own image:",
-                placeholder="e.g. A healthy maize farm in Central Uganda during the rainy season, green crops, morning sunlight...",
+                placeholder="e.g. A dairy cow standing in a green pasture in Uganda...",
                 height=80, key="custom_img_prompt"
             )
 
-            if st.button("🎨 Generate Farm Image", key="gen_img_btn", use_container_width=True):
-                # Determine which prompt to use
+            if st.button("🔍 Get Image", key="gen_img_btn", use_container_width=True):
                 if custom_prompt.strip():
                     final_prompt = custom_prompt.strip()
                 elif quick_prompt != "— Type your own description below —":
@@ -817,21 +874,48 @@ def show_main_app():
                 if not final_prompt:
                     st.warning("Please choose an example or type a description.")
                 else:
-                    with st.spinner("🎨 Generating image… this takes 10-20 seconds…"):
-                        url, used_prompt = generate_image(final_prompt)
-                        st.session_state.generated_image_url    = url
-                        st.session_state.generated_image_prompt = used_prompt
+                    if image_mode.startswith("📷"):
+                        mode = "auto"
+                        spinner_text = "🔍 Searching for a real photo…"
+                    elif image_mode.startswith("🎨"):
+                        mode = "ai"
+                        spinner_text = "🎨 Generating AI image… this takes 10-20 seconds…"
+                    else:
+                        mode = "plan"
+                        spinner_text = "📐 Generating architectural plan…"
 
-            # Display generated image
+                    with st.spinner(spinner_text):
+                        result = get_image(final_prompt, mode=mode)
+                        if result:
+                            st.session_state.generated_image_url    = result["url"]
+                            st.session_state.generated_image_prompt = result.get("prompt", final_prompt)
+                            st.session_state.generated_image_source = result.get("source", "unknown")
+                            st.session_state.generated_image_credit = result.get("photographer")
+                        else:
+                            st.session_state.generated_image_url = None
+                            st.warning("No real photo found for that description. Try AI Generated Image instead.")
+
             if st.session_state.generated_image_url:
+                source = st.session_state.get("generated_image_source", "")
+                if source == "real_photo":
+                    label = "📷 REAL PHOTO"
+                    credit = st.session_state.get("generated_image_credit")
+                    sub = f"Photo by {credit} on Pexels" if credit else "Source: Pexels"
+                elif source == "architectural_plan":
+                    label = "📐 ARCHITECTURAL PLAN"
+                    sub = f'"{st.session_state.generated_image_prompt}"'
+                else:
+                    label = "🎨 AI GENERATED IMAGE"
+                    sub = f'"{st.session_state.generated_image_prompt}"'
+
                 st.markdown(f"""
                 <div class="card card-green" style="margin-top:12px;">
-                    <p class="section-label">🎨 GENERATED IMAGE</p>
-                    <p style="color:#90A4AE;font-size:0.75rem;margin-bottom:10px;font-style:italic;">"{st.session_state.generated_image_prompt}"</p>
+                    <p class="section-label">{label}</p>
+                    <p style="color:#90A4AE;font-size:0.75rem;margin-bottom:10px;font-style:italic;">{sub}</p>
                 </div>""", unsafe_allow_html=True)
                 st.image(st.session_state.generated_image_url, use_container_width=True)
                 st.markdown(f"[📥 Download Image]({st.session_state.generated_image_url})")
-                if st.button("🔄 Generate New Image", key="regen_btn"):
+                if st.button("🔄 Search/Generate Another", key="regen_btn"):
                     st.session_state.generated_image_url = None
                     st.session_state.generated_image_prompt = None
                     st.rerun()
@@ -943,7 +1027,6 @@ def show_main_app():
                 </div>
             </div>""", unsafe_allow_html=True)
 
-            # Alerts
             alerts = parse_weather_alerts(wd, loc_name)
             st.markdown("<p class='section-label'>⚠️ ACTIVE ALERTS FOR YOUR LOCATION</p>", unsafe_allow_html=True)
             if alerts:
@@ -960,7 +1043,6 @@ def show_main_app():
                     <div class="alert-text">Conditions are normal. No weather emergencies detected.</div>
                 </div>""", unsafe_allow_html=True)
 
-            # 7-day forecast
             if daily.get("time"):
                 st.markdown("<br><p class='section-label'>7-DAY FORECAST</p>", unsafe_allow_html=True)
                 days   = daily["time"][:7]
@@ -984,7 +1066,6 @@ def show_main_app():
                             <div style="font-size:0.6rem;color:#90CAF9;">{rp}%🌧</div>
                         </div>""", unsafe_allow_html=True)
 
-                # Charts
                 st.markdown("<br><p class='section-label'>RAINFALL FORECAST (7 DAYS)</p>", unsafe_allow_html=True)
                 chart_df = pd.DataFrame({
                     "Day":[datetime.strptime(d,"%Y-%m-%d").strftime("%a %d") for d in daily["time"][:7]],
@@ -1002,7 +1083,7 @@ def show_main_app():
         else:
             st.warning("Could not load weather data. Check your internet connection and try refreshing.")
 
-    # ── MARKETPLACE — images saved to Supabase ───────────────────────────────
+    # ── MARKETPLACE ─────────────────────────────────────────────────────────────
     with tab_market:
         st.markdown("""
         <div style="background:linear-gradient(135deg,#2d1a00,#5d3a00);border-radius:16px;padding:20px 22px;margin-bottom:20px;">
@@ -1013,10 +1094,7 @@ def show_main_app():
 
         filter_type = st.radio("Filter:", ["All","Selling 🟢","Buying 🔵"], horizontal=True)
 
-        # Load from Supabase
         db_listings = db_get_listings()
-
-        # Default listings if DB empty
         default_listings = [
             {"title":"Organic Compost — 50kg bags","seller":"Kakooza Farms","phone":"+256 772 123456","location":"Wakiso","district":"Wakiso","price":"UGX 25,000","type":"sell","tag":"Waste-to-Value","description":"High quality organic compost made from food waste.","image_base64":None},
             {"title":"Solar Water Pump — rental","seller":"GreenTech Hub","phone":"+256 701 234567","location":"Kampala","district":"Kampala","price":"UGX 15,000/day","type":"sell","tag":"Clean Energy","description":"Portable solar-powered water pump for irrigation.","image_base64":None},
@@ -1033,7 +1111,6 @@ def show_main_app():
             badge_class = "sell-badge" if type_val=="sell" else "buy-badge"
             badge_text  = "SELL"       if type_val=="sell" else "BUY"
 
-            # Show image if stored
             img_b64 = listing.get("image_base64")
             if img_b64:
                 try:
@@ -1061,7 +1138,6 @@ def show_main_app():
                 </div>
             </div><br>""", unsafe_allow_html=True)
 
-        # Post new listing
         st.markdown("<p class='section-label'>POST A NEW LISTING</p>", unsafe_allow_html=True)
         with st.expander("➕ Add your listing with photo"):
             new_title = st.text_input("Title *", placeholder="e.g. Fresh Maize — 100kg")
@@ -1172,5 +1248,5 @@ else:
 st.markdown("""
 <hr style='border-color:rgba(76,175,80,0.1);margin:32px 0 16px;'>
 <p style='text-align:center;font-family:Space Mono,monospace;font-size:0.65rem;color:#37474F;letter-spacing:1px;'>
-ECOPULSE · Elias Creations · 0705046024 · POWERED BY GROQ + SUPABASE + OPEN-METEO
+ECOPULSE · Elias Creations · 0705046024 · POWERED BY GROQ + SUPABASE + OPEN-METEO + PEXELS
 </p>""", unsafe_allow_html=True)
