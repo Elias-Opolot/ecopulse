@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 from supabase import create_client, Client
 import pandas as pd
-import base64
+import base64 as b64lib
 import hashlib
 import requests
 import random
@@ -11,7 +11,7 @@ from datetime import datetime
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="EcoPulse",
-    page_icon="🌍",
+    page_icon=":herb:",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -22,24 +22,24 @@ supa: Client = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KE
 SECRET_KEY   = st.secrets.get("CHAT_SECRET", "ecopulse-ccic-2026")
 PEXELS_KEY   = st.secrets.get("PEXELS_API_KEY", "")
 
-TEXT_MODEL = "openai/gpt-oss-120b"
+TEXT_MODEL   = "openai/gpt-oss-120b"
 VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 # ── Encryption ─────────────────────────────────────────────────────────────────
-def encrypt_message(text: str) -> str:
+def encrypt_message(text):
     key_bytes = (SECRET_KEY * ((len(text) // len(SECRET_KEY)) + 1)).encode()[:len(text)]
     encrypted = bytes([ord(c) ^ k for c, k in zip(text, key_bytes)])
-    return base64.b64encode(encrypted).decode()
+    return b64lib.b64encode(encrypted).decode()
 
-def decrypt_message(token: str) -> str:
+def decrypt_message(token):
     try:
-        encrypted = base64.b64decode(token.encode())
+        encrypted = b64lib.b64decode(token.encode())
         key_bytes = (SECRET_KEY * ((len(encrypted) // len(SECRET_KEY)) + 1)).encode()[:len(encrypted)]
         return bytes([b ^ k for b, k in zip(encrypted, key_bytes)]).decode()
     except:
         return "[encrypted message]"
 
-def hash_password(pw: str) -> str:
+def hash_password(pw):
     return hashlib.sha256((pw + SECRET_KEY).encode()).hexdigest()
 
 # ── Weather ────────────────────────────────────────────────────────────────────
@@ -64,10 +64,7 @@ UGANDA_DISTRICTS = {
     "masaka":(-0.3333,31.7333),"kabale":(-1.2500,29.9833),"soroti":(1.7148,33.6112),
     "mbale":(1.0806,34.1750),"tororo":(0.6930,34.1808),"hoima":(1.4347,31.3522),
     "kasese":(0.1833,30.0833),"iganga":(0.6090,33.4685),"bushenyi":(-0.5500,30.1833),
-    "ntungamo":(-0.8833,30.2667),"rukungiri":(-0.8333,29.9333),"nebbi":(2.4833,31.0833),
-    "adjumani":(3.3667,31.7833),"moroto":(2.5333,34.6667),"kotido":(2.9833,34.1333),
     "ngora":(1.4833,33.7667),"serere":(1.5000,33.5500),"pallisa":(1.1333,33.7167),
-    "kumi":(1.4600,33.9333),"kapchorwa":(1.4000,34.4500),"bukedea":(1.3500,34.0667),
 }
 
 def get_coords_for_district(district):
@@ -100,48 +97,40 @@ def parse_weather_alerts(weather_data, location_name):
     if not weather_data:
         return alerts
     try:
-        current = weather_data.get("current", {})
-        code    = current.get("weathercode", 0)
-        temp    = current.get("temperature_2m", 0)
-        precip  = current.get("precipitation", 0)
-        wind    = current.get("windspeed_10m", 0)
-        humidity= current.get("relative_humidity_2m", 0)
-
+        current  = weather_data.get("current", {})
+        code     = current.get("weathercode", 0)
+        temp     = current.get("temperature_2m", 0)
+        precip   = current.get("precipitation", 0)
+        wind     = current.get("windspeed_10m", 0)
+        humidity = current.get("relative_humidity_2m", 0)
         if code in [61,63,65,80,81,82,95,96,99] or precip > 5:
-            alerts.append({"level":"danger","icon":"🌧️","title":f"HEAVY RAIN — {location_name.upper()}",
-                "message":f"Heavy rainfall ({precip}mm). Delay planting, secure crops and livestock.","sound":True})
+            alerts.append({"level":"danger","title":f"HEAVY RAIN — {location_name.upper()}","message":f"Heavy rainfall ({precip}mm). Delay planting, secure crops and livestock.","sound":True})
         elif code in [51,53,55] or precip > 0.5:
-            alerts.append({"level":"warning","icon":"🌦️","title":f"RAIN INCOMING — {location_name.upper()}",
-                "message":"Light to moderate rain expected. Prepare irrigation and protect stored produce.","sound":False})
+            alerts.append({"level":"warning","title":f"RAIN INCOMING — {location_name.upper()}","message":"Light to moderate rain expected. Protect stored produce.","sound":False})
         if code in [95,96,99]:
-            alerts.append({"level":"danger","icon":"⛈️","title":f"THUNDERSTORM — {location_name.upper()}",
-                "message":"Severe thunderstorm. Stay indoors, unplug equipment, secure farm structures.","sound":True})
+            alerts.append({"level":"danger","title":f"THUNDERSTORM — {location_name.upper()}","message":"Severe thunderstorm. Stay indoors, unplug equipment, secure farm structures.","sound":True})
         if temp > 35:
-            alerts.append({"level":"warning","icon":"🌡️","title":f"HEAT ALERT — {location_name.upper()}",
-                "message":f"Temperature {temp}°C. Irrigate early morning/evening. Ensure livestock have water.","sound":False})
+            alerts.append({"level":"warning","title":f"HEAT ALERT — {location_name.upper()}","message":f"Temperature {temp}C. Irrigate early morning/evening. Ensure livestock have water.","sound":False})
         if code in [0,1] and precip == 0 and humidity < 30:
-            alerts.append({"level":"info","icon":"☀️","title":f"DRY CONDITIONS — {location_name.upper()}",
-                "message":f"Very dry (humidity {humidity}%). Activate water conservation.","sound":False})
+            alerts.append({"level":"info","title":f"DRY CONDITIONS — {location_name.upper()}","message":f"Very dry (humidity {humidity}%). Activate water conservation.","sound":False})
         if wind > 40:
-            alerts.append({"level":"warning","icon":"💨","title":f"STRONG WINDS — {location_name.upper()}",
-                "message":f"Wind {wind} km/h. Secure tall crops. Delay spraying.","sound":False})
+            alerts.append({"level":"warning","title":f"STRONG WINDS — {location_name.upper()}","message":f"Wind {wind} km/h. Secure tall crops. Delay spraying.","sound":False})
         if code in [1,2] and 20<=temp<=28 and 50<=humidity<=75 and precip==0:
-            alerts.append({"level":"success","icon":"✅","title":f"GOOD CONDITIONS — {location_name.upper()}",
-                "message":f"Ideal for planting. Temp {temp}°C, humidity {humidity}%.","sound":False})
+            alerts.append({"level":"success","title":f"GOOD CONDITIONS — {location_name.upper()}","message":f"Ideal for planting. Temp {temp}C, humidity {humidity}%.","sound":False})
     except:
         pass
     return alerts
 
-# ── Supabase helpers ───────────────────────────────────────────────────────────
+# ── Supabase ───────────────────────────────────────────────────────────────────
 def db_register(username, password, full_name, phone, district, role):
     try:
         existing = supa.table("users").select("username").eq("username", username).execute()
         if existing.data:
             return False, "Username already taken."
         supa.table("users").insert({
-            "username": username, "password_hash": hash_password(password),
-            "full_name": full_name, "phone": phone, "district": district,
-            "role": role, "joined": datetime.now().strftime("%d %b %Y"),
+            "username":username,"password_hash":hash_password(password),
+            "full_name":full_name,"phone":phone,"district":district,
+            "role":role,"joined":datetime.now().strftime("%d %b %Y")
         }).execute()
         return True, "Success"
     except Exception as e:
@@ -155,17 +144,17 @@ def db_login(username, password):
         user = result.data[0]
         if user["password_hash"] == hash_password(password):
             return True, user, "Success"
-        return False, None, "Wrong password. Please try again."
+        return False, None, "Wrong password."
     except Exception as e:
         return False, None, str(e)
 
 def db_save_message(room, sender, display_name, encrypted_text):
     try:
         supa.table("chat_messages").insert({
-            "room": room, "sender": sender, "display_name": display_name,
-            "encrypted_text": encrypted_text,
-            "msg_time": datetime.now().strftime("%H:%M"),
-            "msg_date": datetime.now().strftime("%d %b %Y"),
+            "room":room,"sender":sender,"display_name":display_name,
+            "encrypted_text":encrypted_text,
+            "msg_time":datetime.now().strftime("%H:%M"),
+            "msg_date":datetime.now().strftime("%d %b %Y")
         }).execute()
         return True
     except:
@@ -180,13 +169,13 @@ def db_get_messages(room, limit=50):
 
 def db_save_listing(title, description, seller, phone, location, district, price, type_, tag, image_bytes, username):
     try:
-        image_b64 = base64.b64encode(image_bytes).decode() if image_bytes else None
+        image_b64 = b64lib.b64encode(image_bytes).decode() if image_bytes else None
         supa.table("listings").insert({
-            "title": title, "description": description, "seller": seller,
-            "phone": phone, "location": location, "district": district,
-            "price": price, "type": type_, "tag": tag,
-            "image_base64": image_b64, "username": username,
-            "posted_on": datetime.now().strftime("%d %b %Y"),
+            "title":title,"description":description,"seller":seller,
+            "phone":phone,"location":location,"district":district,
+            "price":price,"type":type_,"tag":tag,
+            "image_base64":image_b64,"username":username,
+            "posted_on":datetime.now().strftime("%d %b %Y")
         }).execute()
         return True
     except Exception as e:
@@ -200,35 +189,29 @@ def db_get_listings():
     except:
         return []
 
-# ── Groq AI helpers ────────────────────────────────────────────────────────────
+# ── Groq ───────────────────────────────────────────────────────────────────────
 def ask_groq(system_prompt, user_message, history=None):
     try:
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = [{"role":"system","content":system_prompt}]
         if history:
             for m in history[-6:]:
-                messages.append({"role": m["role"], "content": m["content"]})
-        messages.append({"role": "user", "content": user_message})
-        response = groq_client.chat.completions.create(
-            model=TEXT_MODEL, messages=messages, max_tokens=1200,
-        )
+                messages.append({"role":m["role"],"content":m["content"]})
+        messages.append({"role":"user","content":user_message})
+        response = groq_client.chat.completions.create(model=TEXT_MODEL, messages=messages, max_tokens=1200)
         return response.choices[0].message.content
     except Exception as e:
         return f"Error: {str(e)}"
 
 def ask_groq_vision(user_message, image_base64, image_type="image/jpeg"):
-    """Analyze a farm photo using Groq vision model"""
     try:
         if image_type not in ["image/jpeg","image/png","image/gif","image/webp"]:
             image_type = "image/jpeg"
         response = groq_client.chat.completions.create(
             model=VISION_MODEL,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:{image_type};base64,{image_base64}"}},
-                    {"type": "text", "text": f"You are an expert Ugandan agricultural advisor. {user_message}"}
-                ]
-            }],
+            messages=[{"role":"user","content":[
+                {"type":"image_url","image_url":{"url":f"data:{image_type};base64,{image_base64}"}},
+                {"type":"text","text":f"You are an expert Ugandan agricultural advisor. {user_message}"}
+            ]}],
             max_tokens=1000,
         )
         return response.choices[0].message.content
@@ -240,8 +223,8 @@ def get_realtime_info(query):
         response = groq_client.chat.completions.create(
             model=TEXT_MODEL,
             messages=[
-                {"role":"system","content":"You are an expert on Uganda agriculture, climate, and environment with knowledge up to 2026. Give specific, practical, Uganda-focused information."},
-                {"role":"user","content":f"Give latest information about: {query}\nFocus on Uganda 2025-2026."}
+                {"role":"system","content":"You are an expert on Uganda agriculture, climate, and environment up to 2026. Give specific, practical, Uganda-focused information."},
+                {"role":"user","content":f"Give latest information about: {query}. Focus on Uganda 2025-2026."}
             ],
             max_tokens=1200,
         )
@@ -249,95 +232,60 @@ def get_realtime_info(query):
     except Exception as e:
         return f"Error: {str(e)}"
 
-# ── Image: real photo search, AI generation, architectural plans ───────────────
+# ── Image functions ────────────────────────────────────────────────────────────
 def search_real_photo(query):
-    """Search Pexels for a real, existing photo matching the query"""
     if not PEXELS_KEY:
         return None
     try:
         headers = {"Authorization": PEXELS_KEY}
-        params = {"query": query, "per_page": 1, "orientation": "landscape"}
+        params  = {"query": query, "per_page": 1, "orientation": "landscape"}
         r = requests.get("https://api.pexels.com/v1/search", headers=headers, params=params, timeout=10)
         if r.status_code == 200:
-            data = r.json()
-            photos = data.get("photos", [])
+            photos = r.json().get("photos", [])
             if photos:
                 photo = photos[0]
-                return {
-                    "url": photo["src"]["large"],
-                    "photographer": photo.get("photographer", "Unknown"),
-                    "source": "real_photo",
-                }
+                return {"url":photo["src"]["large"],"photographer":photo.get("photographer","Unknown"),"source":"real_photo"}
         return None
-    except Exception:
+    except:
         return None
 
 def generate_ai_image(description):
-    """Fallback: generate an AI image using Pollinations.ai"""
     try:
         prompt_resp = groq_client.chat.completions.create(
             model=TEXT_MODEL,
-            messages=[{
-                "role": "user",
-                "content": f"Write a short, vivid image generation prompt (max 60 words) for: {description}. Focus on Ugandan farming context. Be descriptive about colors, lighting, setting. No harmful content. Reply with ONLY the prompt text, nothing else."
-            }],
-            max_tokens=150,
-            reasoning_effort="low",
+            messages=[{"role":"user","content":f"Write a short vivid image generation prompt (max 60 words) for: {description}. Ugandan farming context. Reply with ONLY the prompt text."}],
+            max_tokens=150, reasoning_effort="low",
         )
-        improved_prompt = prompt_resp.choices[0].message.content.strip()
-        improved_prompt = improved_prompt.replace("**", "").replace("Prompt:", "").strip()
-        if not improved_prompt:
-            improved_prompt = description
-        encoded = requests.utils.quote(improved_prompt)
-        seed = random.randint(1, 9999)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true&enhance=true"
-        return {"url": url, "prompt": improved_prompt, "source": "ai_generated"}
-    except Exception:
+        improved = prompt_resp.choices[0].message.content.strip().replace("**","").replace("Prompt:","").strip() or description
+        encoded  = requests.utils.quote(improved)
+        seed     = random.randint(1, 9999)
+        url      = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true&enhance=true"
+        return {"url":url,"prompt":improved,"source":"ai_generated"}
+    except:
         encoded = requests.utils.quote(description[:200])
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true"
-        return {"url": url, "prompt": description, "source": "ai_generated"}
+        return {"url":f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true","prompt":description,"source":"ai_generated"}
 
 def generate_architectural_plan(description):
-    """Generate a simple architectural/structural plan diagram (e.g. animal housing layout)"""
     try:
         prompt_resp = groq_client.chat.completions.create(
             model=TEXT_MODEL,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Write a short image generation prompt (max 60 words) for a simple, clean "
-                    f"2D architectural floor plan / blueprint diagram of: {description}. "
-                    f"Style: technical line drawing, top-down view, labeled sections, white background, "
-                    f"black outlines, blueprint/schematic style, no photorealism, no color. "
-                    f"Reply with ONLY the prompt text, nothing else."
-                )
-            }],
-            max_tokens=150,
-            reasoning_effort="low",
+            messages=[{"role":"user","content":f"Write a short image prompt (max 60 words) for a 2D architectural floor plan of: {description}. Style: technical line drawing, top-down view, labeled sections, white background, black outlines, blueprint style. Reply with ONLY the prompt text."}],
+            max_tokens=150, reasoning_effort="low",
         )
-        improved_prompt = prompt_resp.choices[0].message.content.strip()
-        improved_prompt = improved_prompt.replace("**", "").replace("Prompt:", "").strip()
-        if not improved_prompt:
-            improved_prompt = f"architectural blueprint floor plan of {description}, technical line drawing, top-down view, labeled, black and white"
-        encoded = requests.utils.quote(improved_prompt)
-        seed = random.randint(1, 9999)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true"
-        return {"url": url, "prompt": improved_prompt, "source": "architectural_plan"}
-    except Exception:
+        improved = prompt_resp.choices[0].message.content.strip().replace("**","").replace("Prompt:","").strip()
+        if not improved:
+            improved = f"architectural blueprint floor plan of {description}, technical line drawing, top-down, labeled, black and white"
+        encoded = requests.utils.quote(improved)
+        seed    = random.randint(1, 9999)
+        return {"url":f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&seed={seed}&nologo=true","prompt":improved,"source":"architectural_plan"}
+    except:
         encoded = requests.utils.quote(f"blueprint floor plan {description}")
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true"
-        return {"url": url, "prompt": description, "source": "architectural_plan"}
+        return {"url":f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true","prompt":description,"source":"architectural_plan"}
 
 def get_image(description, mode="auto"):
-    """
-    mode = 'auto'  -> try real photo first, fallback to AI generation
-    mode = 'photo' -> real photo only
-    mode = 'ai'    -> AI generation only
-    mode = 'plan'  -> architectural/technical plan
-    """
     if mode == "plan":
         return generate_architectural_plan(description)
-    if mode in ("auto", "photo"):
+    if mode in ("auto","photo"):
         real = search_real_photo(description)
         if real:
             return real
@@ -347,130 +295,202 @@ def get_image(description, mode="auto"):
 
 # ── Session state ──────────────────────────────────────────────────────────────
 DEFAULTS = {
-    "current_user": None, "user_data": None,
-    "farm_messages": [{"role":"assistant","content":"Hello! I'm your AI Farm Advisor 🌾\n\nI can:\n• Answer farming questions with Uganda context\n• Analyze photos of your crops, soil or pests\n• Find real photos or generate AI/architectural images\n• Give real-time climate and market info"}],
-    "active_room": "general",
-    "user_lat": None, "user_lon": None,
-    "location_permission": False,
-    "weather_data": None, "weather_location": None,
-    "last_weather_fetch": None,
-    "active_tab": "home",
-    "generated_image_url": None,
-    "generated_image_prompt": None,
-    "generated_image_source": None,
-    "generated_image_credit": None,
-    "diagnosis_result": None,
+    "current_user":None,"user_data":None,
+    "farm_messages":[{"role":"assistant","content":"Hello! I am your Farm Advisor.\n\nI can:\n- Answer farming questions with Uganda context\n- Analyze photos of your crops, soil or pests\n- Find real photos or generate AI images\n- Give real-time climate and market info"}],
+    "active_room":"general",
+    "user_lat":None,"user_lon":None,
+    "location_permission":False,
+    "weather_data":None,"weather_location":None,
+    "last_weather_fetch":None,
+    "generated_image_url":None,"generated_image_prompt":None,
+    "generated_image_source":None,"generated_image_credit":None,
+    "diagnosis_result":None,
+    "active_nav":"Home",
+    "auth_mode":"signin",
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
 WASTE_CATEGORIES = [
-    {"name":"Organic / Food Waste","icon":"🍌","color":"#4CAF50","tip":"Compost food scraps into rich soil fertilizer for farms."},
-    {"name":"Plastic","icon":"🧴","color":"#2196F3","tip":"Rinse and take to a recycling point near you."},
-    {"name":"Electronic Waste","icon":"📱","color":"#9C27B0","tip":"Never dump e-waste. Find certified e-waste collectors."},
-    {"name":"Agricultural Waste","icon":"🌿","color":"#FF9800","tip":"Convert crop residues to biochar or biogas — both profitable!"},
-    {"name":"Paper & Cardboard","icon":"📦","color":"#795548","tip":"Separate and dry before recycling."},
-    {"name":"Glass","icon":"🍶","color":"#00BCD4","tip":"Reuse clean bottles or return them to manufacturers."},
+    {"name":"Organic / Food Waste","color":"#2E7D32","tip":"Compost food scraps into rich soil fertilizer for farms."},
+    {"name":"Plastic","color":"#1565C0","tip":"Rinse and take to a recycling point near you."},
+    {"name":"Electronic Waste","color":"#6A1B9A","tip":"Never dump e-waste. Find certified e-waste collectors."},
+    {"name":"Agricultural Waste","color":"#E65100","tip":"Convert crop residues to biochar or biogas."},
+    {"name":"Paper & Cardboard","color":"#4E342E","tip":"Separate and dry before recycling."},
+    {"name":"Glass","color":"#00695C","tip":"Reuse clean bottles or return them to manufacturers."},
 ]
+
 CHAT_ROOMS = {
-    "general":       {"name":"🌍 General",       "desc":"Open discussion for all farmers"},
-    "agriculture":   {"name":"🌾 Agriculture",    "desc":"Crop advice, planting, harvesting"},
-    "waste_trading": {"name":"♻️ Waste Trading",  "desc":"Buy & sell agricultural waste"},
-    "climate_alerts":{"name":"🌦️ Climate Alerts","desc":"Share local weather updates"},
+    "general":       {"name":"General",        "desc":"Open discussion for all farmers"},
+    "agriculture":   {"name":"Agriculture",     "desc":"Crop advice, planting, harvesting"},
+    "waste_trading": {"name":"Waste Trading",   "desc":"Buy and sell agricultural waste"},
+    "climate_alerts":{"name":"Climate Alerts",  "desc":"Share local weather updates"},
 }
 
-# ── CSS ────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# CSS
+# ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;600;800&display=swap');
-html,body,[class*="css"]{font-family:'DM Sans',sans-serif;background-color:#0a0f0a;color:#e8f5e9;}
-.stApp{background:#0a0f0a;}
-h1,h2,h3{font-family:'Playfair Display',serif!important;}
-.hero-box{background:linear-gradient(135deg,#0a2016,#1a4731 50%,#0d2137);border-radius:20px;padding:32px 28px;margin-bottom:24px;border:1px solid rgba(76,175,80,0.2);}
-.hero-title{font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:900;color:#fff;margin:0 0 8px;line-height:1.2;}
-.hero-accent{color:#81C784;}
-.hero-sub{font-size:1rem;color:#a8d5b5;margin:0 0 16px;line-height:1.6;}
-.badge{display:inline-block;padding:4px 12px;border-radius:8px;font-family:'Space Mono',monospace;font-size:0.7rem;font-weight:700;margin-right:6px;}
-.badge-green{background:rgba(76,175,80,0.2);border:1px solid rgba(76,175,80,0.4);color:#81C784;}
-.badge-blue{background:rgba(33,150,243,0.2);border:1px solid rgba(33,150,243,0.4);color:#64B5F6;}
-.badge-orange{background:rgba(255,152,0,0.2);border:1px solid rgba(255,152,0,0.4);color:#FFB74D;}
-.badge-purple{background:rgba(156,39,176,0.2);border:1px solid rgba(156,39,176,0.4);color:#CE93D8;}
-.section-label{font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:3px;text-transform:uppercase;color:#81C784;margin-bottom:4px;}
-.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px;margin-bottom:12px;}
-.card-green{border-color:rgba(76,175,80,0.25);}
-.card-blue{border-color:rgba(33,150,243,0.25);}
-.card-orange{border-color:rgba(255,152,0,0.25);}
-.card-purple{border-color:rgba(156,39,176,0.25);}
-.feature-card{border-radius:16px;padding:18px 16px 6px;margin-bottom:0;}
-.feature-card-green{background:rgba(76,175,80,0.06);border:1px solid rgba(76,175,80,0.25);}
-.feature-card-blue{background:rgba(33,150,243,0.06);border:1px solid rgba(33,150,243,0.25);}
-.feature-card-orange{background:rgba(255,152,0,0.06);border:1px solid rgba(255,152,0,0.25);}
-.feature-card-purple{background:rgba(156,39,176,0.06);border:1px solid rgba(156,39,176,0.25);}
-.alert-danger{background:rgba(244,67,54,0.15);border:2px solid rgba(244,67,54,0.6);border-radius:12px;padding:14px 18px;margin-bottom:12px;}
-.alert-warning{background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.4);border-radius:12px;padding:14px 18px;margin-bottom:12px;}
-.alert-info{background:rgba(33,150,243,0.1);border:1px solid rgba(33,150,243,0.3);border-radius:12px;padding:14px 18px;margin-bottom:12px;}
-.alert-success{background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:12px;padding:14px 18px;margin-bottom:12px;}
-.alert-text{color:#e8f5e9;font-size:0.88rem;line-height:1.6;}
-.alert-region{font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:1px;font-weight:700;margin-bottom:4px;}
-.weather-card{background:rgba(255,255,255,0.04);border:1px solid rgba(33,150,243,0.2);border-radius:16px;padding:20px;margin-bottom:16px;}
-.weather-big{font-size:3rem;font-weight:900;color:#64B5F6;font-family:'Space Mono',monospace;}
-.weather-label{font-size:0.72rem;color:#546E7A;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:1px;}
-.day-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 4px;text-align:center;margin-bottom:8px;}
-.market-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:0;margin-bottom:16px;overflow:hidden;}
-.market-body{padding:14px 16px;}
-.market-title{font-size:0.95rem;font-weight:800;color:#fff;margin-bottom:4px;}
-.market-meta{font-size:0.78rem;color:#90A4AE;margin-bottom:8px;}
-.market-price{font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;color:#FFB74D;}
-.market-tag{display:inline-block;background:rgba(255,183,77,0.15);color:#FFB74D;font-size:0.7rem;padding:2px 8px;border-radius:4px;margin-left:8px;}
-.sell-badge{background:rgba(76,175,80,0.2);color:#81C784;font-size:0.65rem;font-weight:700;padding:3px 8px;border-radius:6px;float:right;font-family:'Space Mono',monospace;}
-.buy-badge{background:rgba(33,150,243,0.2);color:#64B5F6;font-size:0.65rem;font-weight:700;padding:3px 8px;border-radius:6px;float:right;font-family:'Space Mono',monospace;}
-.seller-info{background:rgba(76,175,80,0.06);border-top:1px solid rgba(76,175,80,0.15);padding:10px 16px;font-size:0.78rem;color:#a8d5b5;}
-.verified-badge{display:inline-block;background:rgba(76,175,80,0.2);color:#81C784;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:4px;margin-left:6px;font-family:'Space Mono',monospace;}
-.chat-user{background:linear-gradient(135deg,#2d7a4f,#1a4731);border-radius:16px 16px 4px 16px;padding:10px 14px;margin:6px 0 6px auto;max-width:80%;font-size:0.9rem;color:#e8f5e9;line-height:1.6;}
-.chat-ai{background:rgba(255,255,255,0.06);border:1px solid rgba(168,230,191,0.2);border-radius:16px 16px 16px 4px;padding:10px 14px;margin:6px auto 6px 0;max-width:85%;font-size:0.9rem;color:#e8f5e9;line-height:1.6;white-space:pre-wrap;}
-.msg-bubble-me{background:linear-gradient(135deg,#1a4731,#2d7a4f);border-radius:16px 16px 4px 16px;padding:10px 14px;margin:4px 0 4px auto;max-width:75%;font-size:0.88rem;color:#e8f5e9;line-height:1.5;}
-.msg-bubble-other{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:16px 16px 16px 4px;padding:10px 14px;margin:4px auto 4px 0;max-width:75%;font-size:0.88rem;color:#e8f5e9;line-height:1.5;}
-.msg-name{font-size:0.68rem;font-weight:700;color:#81C784;font-family:'Space Mono',monospace;margin-bottom:3px;}
-.msg-time{font-size:0.62rem;color:#546E7A;margin-top:3px;text-align:right;}
-.auth-box{background:rgba(255,255,255,0.03);border:1px solid rgba(76,175,80,0.2);border-radius:20px;padding:32px;max-width:500px;margin:0 auto;}
-.image-tip{background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.2);border-radius:10px;padding:10px 14px;font-size:0.8rem;color:#90CAF9;margin-bottom:12px;}
-.quote-box{background:rgba(76,175,80,0.06);border:1px solid rgba(76,175,80,0.15);border-radius:14px;padding:18px 20px;margin-top:20px;}
-.realtime-box{background:rgba(33,150,243,0.06);border:1px solid rgba(33,150,243,0.2);border-radius:14px;padding:16px;margin-bottom:16px;}
-.loc-banner{background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.25);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:0.82rem;color:#90CAF9;}
-.stTextInput>div>div>input{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(168,230,191,0.2)!important;border-radius:10px!important;color:#e8f5e9!important;}
-.stButton>button{background:linear-gradient(135deg,#2d7a4f,#4CAF50)!important;border:none!important;border-radius:10px!important;color:#fff!important;font-weight:700!important;font-family:'DM Sans',sans-serif!important;}
-div[data-testid="stTabs"] button{color:#81C784!important;font-family:'DM Sans',sans-serif!important;font-weight:700!important;}
-.floating-alert{position:fixed;top:80px;right:20px;z-index:9999;background:#1a0a0a;border:2px solid #f44336;border-radius:16px;padding:16px 20px;max-width:300px;box-shadow:0 8px 32px rgba(244,67,54,0.4);animation:slideIn 0.4s ease;}
-.floating-alert-warning{position:fixed;top:80px;right:20px;z-index:9999;background:#1a1200;border:2px solid #FF9800;border-radius:16px;padding:16px 20px;max-width:300px;box-shadow:0 8px 32px rgba(255,152,0,0.3);animation:slideIn 0.4s ease;}
-@keyframes slideIn{from{transform:translateX(120%);opacity:0;}to{transform:translateX(0);opacity:1;}}
-.floating-title{font-weight:800;font-size:0.82rem;color:#f44336;font-family:'Space Mono',monospace;margin-bottom:6px;}
-.floating-title-w{font-weight:800;font-size:0.82rem;color:#FF9800;font-family:'Space Mono',monospace;margin-bottom:6px;}
-.floating-msg{font-size:0.78rem;color:#e8f5e9;line-height:1.5;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; background: #ffffff; color: #1a1a1a; }
+.stApp { background: #ffffff; }
+
+/* Remove default streamlit padding on auth */
+.auth-page section.main > div { padding: 0 !important; }
+
+/* ── TOP NAV ── */
+.topnav {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #ffffff; border-bottom: 2px solid #e8f5e9;
+    padding: 14px 40px; position: sticky; top: 0; z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.topnav-brand {
+    font-family: 'Poppins', sans-serif; font-size: 1.5rem;
+    font-weight: 800; color: #2E7D32; letter-spacing: -0.5px;
+}
+.topnav-links { display: flex; align-items: center; gap: 2px; }
+.nav-item {
+    padding: 8px 16px; border-radius: 8px; font-size: 0.85rem;
+    font-weight: 500; color: #555; cursor: pointer; border: none;
+    background: none; font-family: 'Inter', sans-serif; transition: all 0.15s;
+    white-space: nowrap;
+}
+.nav-item:hover { background: #f1f8e9; color: #2E7D32; }
+.nav-item.active { background: #2E7D32; color: #fff; font-weight: 600; }
+.nav-user-info { font-size: 0.8rem; color: #888; font-weight: 500; }
+
+/* ── PAGE WRAPPER ── */
+.page-content { padding: 36px 48px; max-width: 1100px; margin: 0 auto; }
+
+/* ── AUTH PAGE ── */
+.auth-wrapper {
+    display: flex; min-height: 100vh; background: #fff;
+}
+.auth-left-panel {
+    flex: 1;
+    background: linear-gradient(rgba(0,0,0,0.38), rgba(0,0,0,0.50)),
+        url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1400&q=80') center/cover no-repeat;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 56px 48px; min-height: 100vh;
+}
+.auth-left-headline {
+    font-family: 'Poppins', sans-serif; font-size: 2.6rem;
+    font-weight: 800; color: #fff; line-height: 1.2; margin-bottom: 14px;
+}
+.auth-left-desc { font-size: 1rem; color: rgba(255,255,255,0.88); line-height: 1.65; max-width: 400px; }
+.auth-right-panel {
+    width: 500px; min-width: 500px; background: #fff;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 56px 60px; min-height: 100vh;
+}
+.auth-brand {
+    font-family: 'Poppins', sans-serif; font-size: 1.8rem;
+    font-weight: 800; color: #2E7D32; margin-bottom: 36px;
+    display: block;
+}
+.auth-heading { font-family: 'Poppins', sans-serif; font-size: 1.7rem; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+.auth-sub { font-size: 0.88rem; color: #999; margin-bottom: 28px; }
+.auth-footer { font-size: 0.84rem; color: #777; margin-top: 20px; text-align: center; }
+
+/* ── SECTION HEADER ── */
+.page-header {
+    background: #f9fbe7; border-left: 4px solid #2E7D32;
+    border-radius: 0 12px 12px 0; padding: 20px 24px; margin-bottom: 28px;
+}
+.page-header-title { font-family: 'Poppins', sans-serif; font-size: 1.35rem; font-weight: 700; color: #1B5E20; }
+.page-header-sub { font-size: 0.83rem; color: #558B2F; margin-top: 4px; }
+
+/* ── FEATURE CARDS ── */
+.feat-card {
+    background: #fff; border: 1.5px solid #e8f5e9; border-radius: 16px;
+    padding: 24px; transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.feat-card:hover { border-color: #2E7D32; box-shadow: 0 6px 20px rgba(46,125,50,0.12); transform: translateY(-2px); }
+.feat-icon {
+    width: 46px; height: 46px; border-radius: 12px; background: #e8f5e9;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+}
+.feat-icon-text { font-size: 0.65rem; font-weight: 800; color: #2E7D32; letter-spacing: 0.5px; }
+.feat-title { font-family: 'Poppins', sans-serif; font-size: 1rem; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+.feat-desc { font-size: 0.82rem; color: #777; line-height: 1.55; }
+
+/* ── ALERTS ── */
+.alert-danger  { background: #ffebee; border-left: 4px solid #c62828; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; }
+.alert-warning { background: #fff8e1; border-left: 4px solid #f57f17; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; }
+.alert-info    { background: #e3f2fd; border-left: 4px solid #1565C0; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; }
+.alert-success { background: #e8f5e9; border-left: 4px solid #2E7D32; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; }
+.alert-label   { font-weight: 700; font-size: 0.8rem; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+.alert-text    { font-size: 0.88rem; line-height: 1.6; color: #333; }
+
+/* ── WEATHER ── */
+.wx-card { background: #f9fbe7; border: 1.5px solid #c5e1a5; border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+.wx-temp { font-family: 'Poppins', sans-serif; font-size: 3.2rem; font-weight: 800; color: #2E7D32; }
+.wx-cond { font-size: 1rem; color: #558B2F; margin-top: 4px; }
+.wx-stat { background: #fff; border: 1px solid #dcedc8; border-radius: 10px; padding: 14px 10px; text-align: center; }
+.wx-stat-val { font-family: 'Poppins', sans-serif; font-size: 1.1rem; font-weight: 700; color: #2E7D32; }
+.wx-stat-lbl { font-size: 0.7rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.day-card { background: #fff; border: 1px solid #e8f5e9; border-radius: 10px; padding: 10px 4px; text-align: center; }
+
+/* ── MARKET ── */
+.mk-card { background: #fff; border: 1.5px solid #e0e0e0; border-radius: 14px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+.mk-body { padding: 16px; }
+.mk-title { font-weight: 700; color: #1a1a1a; font-size: 0.95rem; margin-bottom: 4px; }
+.mk-meta  { font-size: 0.78rem; color: #999; margin-bottom: 8px; }
+.mk-price { font-family: 'Poppins', sans-serif; font-size: 1rem; font-weight: 700; color: #2E7D32; }
+.mk-tag   { display: inline-block; background: #e8f5e9; color: #2E7D32; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+.sell-badge { background: #e8f5e9; color: #2E7D32; font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; float: right; }
+.buy-badge  { background: #e3f2fd; color: #1565C0; font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; float: right; }
+.mk-seller  { background: #f9fbe7; border-top: 1px solid #e8f5e9; padding: 10px 16px; font-size: 0.78rem; color: #555; }
+.verified   { display: inline-block; background: #e8f5e9; color: #2E7D32; font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; margin-left: 6px; }
+
+/* ── CHAT ── */
+.msg-me    { background: #2E7D32; color: #fff; border-radius: 16px 16px 4px 16px; padding: 10px 14px; margin: 4px 0 4px auto; max-width: 75%; font-size: 0.88rem; line-height: 1.5; }
+.msg-other { background: #f5f5f5; color: #1a1a1a; border: 1px solid #e0e0e0; border-radius: 16px 16px 16px 4px; padding: 10px 14px; margin: 4px auto 4px 0; max-width: 75%; font-size: 0.88rem; line-height: 1.5; }
+.msg-name  { font-size: 0.68rem; font-weight: 700; color: #2E7D32; margin-bottom: 3px; }
+.msg-time  { font-size: 0.62rem; color: #aaa; margin-top: 3px; text-align: right; }
+.advisor-reply { background: #f9fbe7; border-left: 3px solid #2E7D32; border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 8px 0; font-size: 0.9rem; color: #1a1a1a; line-height: 1.6; white-space: pre-wrap; }
+.user-msg { background: #e8f5e9; border-radius: 10px; padding: 10px 14px; margin: 8px 0 8px auto; max-width: 80%; font-size: 0.9rem; color: #1a1a1a; line-height: 1.6; }
+
+/* ── INFO BOX ── */
+.info-box { background: #e3f2fd; border-left: 4px solid #1565C0; border-radius: 0 8px 8px 0; padding: 10px 14px; font-size: 0.82rem; color: #1a237e; margin-bottom: 14px; }
+
+/* ── FLOATING ALERT ── */
+.floating-alert { position:fixed;top:80px;right:20px;z-index:9999;background:#fff;border:2px solid #c62828;border-radius:12px;padding:14px 18px;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,0.12); }
+.floating-title { font-weight:700;font-size:0.82rem;color:#c62828;margin-bottom:6px; }
+.floating-msg   { font-size:0.78rem;color:#333;line-height:1.5; }
+
+/* ── STREAMLIT OVERRIDES ── */
+.stButton > button {
+    background: #2E7D32 !important; border: none !important;
+    border-radius: 8px !important; color: #fff !important;
+    font-weight: 600 !important; font-family: 'Inter', sans-serif !important;
+    padding: 10px 20px !important; transition: all 0.15s !important;
+}
+.stButton > button:hover { background: #1B5E20 !important; }
+.stTextInput > div > div > input {
+    border: 1.5px solid #ddd !important; border-radius: 8px !important;
+    background: #fff !important; color: #1a1a1a !important;
+    font-family: 'Inter', sans-serif !important; padding: 10px 14px !important;
+}
+.stTextInput > div > div > input:focus { border-color: #2E7D32 !important; box-shadow: 0 0 0 3px rgba(46,125,50,0.1) !important; }
+.stSelectbox > div > div { border: 1.5px solid #ddd !important; border-radius: 8px !important; }
+div[data-testid="stTabs"] button { color: #555 !important; font-family: 'Inter', sans-serif !important; font-weight: 500 !important; }
+div[data-testid="stTabs"] button[aria-selected="true"] { color: #2E7D32 !important; font-weight: 700 !important; border-bottom: 2px solid #2E7D32 !important; }
+h1, h2, h3 { font-family: 'Poppins', sans-serif !important; }
+section.main > div { padding-top: 0 !important; }
+.block-container { padding-top: 0 !important; }
+footer { display: none !important; }
+#MainMenu { display: none !important; }
+header { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
-
-GEOLOCATION_JS = """
-<script>
-function requestLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                const url = new URL(window.location);
-                url.searchParams.set('lat', pos.coords.latitude.toFixed(6));
-                url.searchParams.set('lon', pos.coords.longitude.toFixed(6));
-                window.location.href = url.toString();
-            },
-            function(err) { alert("Location access denied: " + err.message); },
-            {enableHighAccuracy:true, timeout:10000}
-        );
-    }
-}
-</script>
-<button onclick="requestLocation()" style="background:linear-gradient(135deg,#1565C0,#1E88E5);border:none;border-radius:10px;color:#fff;padding:10px 20px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.85rem;">
-📍 Allow Location Access
-</button>
-"""
 
 ALERT_SOUND_JS = """
 <script>
@@ -491,19 +511,27 @@ ALERT_SOUND_JS = """
 </script>
 """
 
-def nav_to_tab_js(tab_label):
-    st.components.v1.html(f"""
-    <script>
-    setTimeout(function(){{
-        const tabs = window.parent.document.querySelectorAll('button[role="tab"]');
-        for(let t of tabs){{
-            if(t.innerText.trim().indexOf("{tab_label}")>=0){{
-                t.click(); break;
-            }}
-        }}
-    }}, 400);
-    </script>
-    """, height=0)
+GEOLOCATION_JS = """
+<script>
+function requestLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                const url = new URL(window.location);
+                url.searchParams.set('lat', pos.coords.latitude.toFixed(6));
+                url.searchParams.set('lon', pos.coords.longitude.toFixed(6));
+                window.location.href = url.toString();
+            },
+            function(err) { alert("Location access denied: " + err.message); },
+            {enableHighAccuracy:true, timeout:10000}
+        );
+    }
+}
+</script>
+<button onclick="requestLocation()" style="background:#2E7D32;border:none;border-radius:8px;color:#fff;padding:10px 20px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;font-size:0.85rem;">
+    Allow Location Access
+</button>
+"""
 
 def read_location_from_params():
     try:
@@ -540,83 +568,104 @@ def fetch_weather(user_data):
 def show_floating_alerts(alerts):
     shown = [a for a in alerts if a["level"]=="danger"][:1] or [a for a in alerts if a["level"]=="warning"][:1]
     for alert in shown:
-        is_d = alert["level"]=="danger"
-        st.markdown(f"""
-        <div class="{'floating-alert' if is_d else 'floating-alert-warning'}">
-            <div class="{'floating-title' if is_d else 'floating-title-w'}">{alert['icon']} {alert['title']}</div>
-            <div class="floating-msg">{alert['message']}</div>
+        st.markdown(f"""<div class="floating-alert">
+            <div class="floating-title">{alert["title"]}</div>
+            <div class="floating-msg">{alert["message"]}</div>
         </div>""", unsafe_allow_html=True)
         if alert.get("sound"):
             st.components.v1.html(ALERT_SOUND_JS, height=0)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# AUTH
+# AUTH — split layout: image left, form right
 # ══════════════════════════════════════════════════════════════════════════════
 def show_auth():
-    st.markdown("""
-    <div style="text-align:center;margin-bottom:28px;">
-        <h1 style="font-family:'Playfair Display',serif;color:#81C784;font-size:2.4rem;margin:0;">🌍 EcoPulse</h1>
-        <p style="font-family:'Space Mono',monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;">ELIAS CREATIONS</p>
-        <p style="color:#90A4AE;font-size:0.85rem;margin-top:8px;">Uganda's AI-powered green revolution platform</p>
-    </div>""", unsafe_allow_html=True)
+    left_col, right_col = st.columns([1.1, 1])
 
-    auth_tab1, auth_tab2 = st.tabs(["🔑 Sign In","📝 Register"])
+    with left_col:
+        st.markdown("""
+        <div class="auth-left-panel">
+            <div>
+                <div class="auth-left-headline">Smart Farming<br>Starts Here</div>
+                <div class="auth-left-desc">
+                    AI-powered climate advisory, real-time weather alerts,
+                    green marketplace and encrypted farmer community —
+                    all in one platform built for Uganda.
+                </div>
+            </div>
+        </div>""", unsafe_allow_html=True)
 
-    with auth_tab1:
-        st.markdown("<div class='auth-box'>", unsafe_allow_html=True)
-        st.markdown("<p class='section-label'>SIGN IN TO ECOPULSE</p>", unsafe_allow_html=True)
-        login_user = st.text_input("Username", placeholder="Enter your username", key="login_user")
-        login_pass = st.text_input("Password", type="password", placeholder="Enter your password", key="login_pass")
-        if st.button("Sign In →", key="signin_btn"):
-            uname = login_user.strip().lower().replace(" ","_")
-            if not uname or not login_pass:
-                st.warning("Please enter username and password.")
-            else:
-                with st.spinner("Signing in…"):
-                    success, user, msg = db_login(uname, login_pass)
-                if success:
-                    st.session_state.current_user = uname
-                    st.session_state.user_data    = user
-                    st.success(f"Welcome back, {user['full_name']}! 🌱")
-                    st.rerun()
+    with right_col:
+        st.markdown('<div class="auth-right-panel">', unsafe_allow_html=True)
+        st.markdown('<span class="auth-brand">EcoPulse</span>', unsafe_allow_html=True)
+
+        if st.session_state.auth_mode == "signin":
+            st.markdown('<div class="auth-heading">Welcome back</div>', unsafe_allow_html=True)
+            st.markdown('<div class="auth-sub">Sign in to your account to continue</div>', unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            login_user = st.text_input("Username", placeholder="Enter your username", key="login_user")
+            login_pass = st.text_input("Password", type="password", placeholder="Enter your password", key="login_pass")
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            if st.button("Sign In", key="signin_btn", use_container_width=True):
+                uname = login_user.strip().lower().replace(" ", "_")
+                if not uname or not login_pass:
+                    st.warning("Please enter your username and password.")
                 else:
-                    st.error(f"❌ {msg}")
-        st.markdown("""<br><div style="background:rgba(76,175,80,0.06);border:1px solid rgba(76,175,80,0.15);border-radius:10px;padding:10px 14px;font-size:0.78rem;color:#81C784;">
-        💡 New user? Click the <b>Register</b> tab to create your free account.</div>""", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+                    with st.spinner("Signing in..."):
+                        success, user, msg = db_login(uname, login_pass)
+                    if success:
+                        st.session_state.current_user = uname
+                        st.session_state.user_data    = user
+                        st.rerun()
+                    else:
+                        st.error(msg)
 
-    with auth_tab2:
-        st.markdown("<div class='auth-box'>", unsafe_allow_html=True)
-        st.markdown("<p class='section-label'>CREATE YOUR FREE ACCOUNT</p>", unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        with c1:
-            reg_fname = st.text_input("Full Name *", placeholder="e.g. Nakato Sarah", key="reg_fname")
-            reg_uname = st.text_input("Username *", placeholder="e.g. nakato_sarah", key="reg_uname")
-            reg_phone = st.text_input("Phone Number *", placeholder="+256 7XX XXXXXX", key="reg_phone")
-        with c2:
-            reg_dist  = st.text_input("District *", placeholder="e.g. Wakiso", key="reg_dist")
-            reg_role  = st.selectbox("I am a *",["Farmer","Agri-business","Recycler","Student","Other"],key="reg_role")
-            reg_pass  = st.text_input("Password *", type="password", placeholder="Min 6 characters", key="reg_pass")
-        reg_pass2 = st.text_input("Confirm Password *", type="password", placeholder="Repeat password", key="reg_pass2")
-        if st.button("Create Account →", key="register_btn"):
-            uname = reg_uname.strip().lower().replace(" ","_")
-            if not all([reg_fname, reg_uname, reg_phone, reg_dist, reg_pass, reg_pass2]):
-                st.warning("⚠️ Please fill all required fields.")
-            elif len(reg_pass) < 6:
-                st.error("❌ Password must be at least 6 characters.")
-            elif reg_pass != reg_pass2:
-                st.error("❌ Passwords do not match.")
-            else:
-                with st.spinner("Creating your account…"):
-                    success, msg = db_register(uname, reg_pass, reg_fname, reg_phone, reg_dist, reg_role)
-                if success:
-                    _, user, _ = db_login(uname, reg_pass)
-                    st.session_state.current_user = uname
-                    st.session_state.user_data    = user
-                    st.success(f"✅ Account created! Welcome, {reg_fname}! 🌱")
-                    st.rerun()
+            st.markdown('<div class="auth-footer">Don\'t have an account?</div>', unsafe_allow_html=True)
+            if st.button("Create a new account", key="go_register", use_container_width=True):
+                st.session_state.auth_mode = "register"
+                st.rerun()
+
+        else:
+            st.markdown('<div class="auth-heading">Create account</div>', unsafe_allow_html=True)
+            st.markdown('<div class="auth-sub">Join the EcoPulse farmer community</div>', unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                reg_fname = st.text_input("Full Name *", placeholder="e.g. Nakato Sarah", key="reg_fname")
+                reg_uname = st.text_input("Username *", placeholder="e.g. nakato_sarah", key="reg_uname")
+                reg_phone = st.text_input("Phone Number *", placeholder="+256 7XX XXXXXX", key="reg_phone")
+            with c2:
+                reg_dist  = st.text_input("District *", placeholder="e.g. Wakiso", key="reg_dist")
+                reg_role  = st.selectbox("I am a *", ["Farmer","Agri-business","Recycler","Student","Other"], key="reg_role")
+                reg_pass  = st.text_input("Password *", type="password", placeholder="Min 6 characters", key="reg_pass")
+            reg_pass2 = st.text_input("Confirm Password *", type="password", placeholder="Repeat password", key="reg_pass2")
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            if st.button("Create Account", key="register_btn", use_container_width=True):
+                uname = reg_uname.strip().lower().replace(" ", "_")
+                if not all([reg_fname, reg_uname, reg_phone, reg_dist, reg_pass, reg_pass2]):
+                    st.warning("Please fill all required fields.")
+                elif len(reg_pass) < 6:
+                    st.error("Password must be at least 6 characters.")
+                elif reg_pass != reg_pass2:
+                    st.error("Passwords do not match.")
                 else:
-                    st.error(f"❌ {msg}")
+                    with st.spinner("Creating account..."):
+                        success, msg = db_register(uname, reg_pass, reg_fname, reg_phone, reg_dist, reg_role)
+                    if success:
+                        _, user, _ = db_login(uname, reg_pass)
+                        st.session_state.current_user = uname
+                        st.session_state.user_data    = user
+                        st.rerun()
+                    else:
+                        st.error(msg)
+
+            if st.button("Back to Sign In", key="go_signin", use_container_width=True):
+                st.session_state.auth_mode = "signin"
+                st.rerun()
+
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -630,221 +679,193 @@ def show_main_app():
     fetch_weather(user_data)
 
     if st.session_state.weather_data:
-        loc_name = st.session_state.weather_location or user_data.get("district","Uganda")
-        alerts = parse_weather_alerts(st.session_state.weather_data, loc_name)
+        loc_name = st.session_state.weather_location or user_data.get("district", "Uganda")
+        alerts   = parse_weather_alerts(st.session_state.weather_data, loc_name)
         if alerts:
             show_floating_alerts(alerts)
 
-    c_logo, c_user, c_out = st.columns([4,2,1])
-    with c_logo:
-        st.markdown("<h1 style='font-family:Playfair Display,serif;color:#81C784;margin:0;font-size:1.8rem;'>🌍 EcoPulse</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='font-family:Space Mono,monospace;font-size:0.65rem;color:#4CAF50;letter-spacing:2px;margin:0;'>ELIAS CREATION</p>", unsafe_allow_html=True)
-    with c_user:
-        loc_icon = "📍" if st.session_state.location_permission else "🏘️"
-        loc_name = st.session_state.weather_location or user_data.get("district","—")
-        st.markdown(f"""<div style="text-align:right;margin-top:8px;">
-            <div style="font-size:0.8rem;font-weight:700;color:#81C784;">👤 {user_data['full_name']}</div>
-            <div style="font-size:0.65rem;color:#546E7A;font-family:'Space Mono',monospace;">{loc_icon} {loc_name}</div>
-        </div>""", unsafe_allow_html=True)
-    with c_out:
-        if st.button("Sign Out"):
+    # ── TOP NAVIGATION ──────────────────────────────────────────────────────
+    NAV_ITEMS = ["Home", "Farm AI", "Waste Guide", "Climate", "Marketplace", "Farmer Chat"]
+    active    = st.session_state.active_nav
+    loc_label = "GPS Active" if st.session_state.location_permission else user_data.get("district", "")
+
+    nav_html  = f"""
+    <div class="topnav">
+        <div class="topnav-brand">EcoPulse</div>
+        <div class="topnav-links">
+    """
+    for item in NAV_ITEMS:
+        cls = "nav-item active" if item == active else "nav-item"
+        nav_html += f'<span class="{cls}">{item}</span>'
+    nav_html += f"""
+        </div>
+        <div class="nav-user-info">{user_data['full_name']} &nbsp;|&nbsp; {loc_label}</div>
+    </div>"""
+    st.markdown(nav_html, unsafe_allow_html=True)
+
+    # Invisible nav buttons (provide actual click functionality)
+    btn_cols = st.columns(len(NAV_ITEMS) + 1)
+    for i, item in enumerate(NAV_ITEMS):
+        with btn_cols[i]:
+            if st.button(item, key=f"nav_{item}"):
+                st.session_state.active_nav = item
+                st.rerun()
+    with btn_cols[-1]:
+        if st.button("Sign Out", key="nav_signout"):
             for k in ["current_user","user_data","weather_data","farm_messages","generated_image_url","diagnosis_result"]:
                 st.session_state[k] = None
-            st.session_state.active_tab = "home"
+            st.session_state.active_nav = "Home"
+            st.session_state.auth_mode  = "signin"
             st.rerun()
 
-    st.markdown("<hr style='border-color:rgba(76,175,80,0.15);margin:10px 0 20px;'>", unsafe_allow_html=True)
+    # Hide the actual buttons visually — nav bar handles display
+    st.markdown("""<style>
+    div[data-testid="stHorizontalBlock"] button {
+        opacity: 0 !important; height: 4px !important; min-height: 0 !important;
+        padding: 0 !important; margin: 0 !important; overflow: hidden !important;
+        pointer-events: auto !important; position: relative !important;
+    }
+    div[data-testid="stHorizontalBlock"] {
+        margin: -8px 0 0 0 !important; padding: 0 !important; gap: 0 !important;
+    }
+    </style>""", unsafe_allow_html=True)
 
-    tab_home, tab_farm, tab_waste, tab_climate, tab_market, tab_chat = st.tabs([
-        "🏠 Home","🌾 Farm AI","♻️ Waste Guide","🌦️ Climate","🤝 Marketplace","💬 Farmer Chat"
-    ])
+    st.markdown('<div class="page-content">', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # HOME
     # ══════════════════════════════════════════════════════════════════════════
-    with tab_home:
+    if active == "Home":
+        name = user_data["full_name"].split()[0]
         st.markdown(f"""
-        <div class="hero-box">
-            <p class="section-label">CCIC 2026 — Track 2: Climate Tech & Digital Innovation</p>
-            <h1 class="hero-title">Welcome back,<br><span class="hero-accent">{user_data['full_name'].split()[0]}</span> 👋</h1>
-            <p class="hero-sub">Click any feature card below to get started instantly.</p>
-            <span class="badge badge-green">🌾 AgriAI</span>
-            <span class="badge badge-blue">♻️ Waste</span>
-            <span class="badge badge-orange">🤝 Market</span>
-            <span class="badge badge-purple">💬 Chat</span>
+        <div style="margin-bottom:32px;">
+            <div style="font-family:'Poppins',sans-serif;font-size:1.8rem;font-weight:700;color:#1a1a1a;margin-bottom:6px;">
+                Welcome back, {name}
+            </div>
+            <div style="font-size:0.92rem;color:#888;">Here is what you can do with EcoPulse today.</div>
         </div>""", unsafe_allow_html=True)
 
-        st.markdown("<p class='section-label' style='margin-bottom:14px;'>FEATURES — CLICK TO OPEN</p>", unsafe_allow_html=True)
+        features = [
+            {"title":"Farm AI Advisor",    "icon":"AI",   "bg":"#e8f5e9","desc":"Ask AI for crop guidance, diagnose diseases from photos, and get Uganda-specific farming advice in real time.","page":"Farm AI"},
+            {"title":"Climate Dashboard",  "icon":"WX",   "bg":"#e3f2fd","desc":"Live weather alerts for your exact location. 7-day forecast with automatic emergency notifications.","page":"Climate"},
+            {"title":"Waste Guide",        "icon":"RCY",  "bg":"#fff8e1","desc":"Turn agricultural and household waste into income with AI-powered circular economy guidance.","page":"Waste Guide"},
+            {"title":"Green Marketplace",  "icon":"MKT",  "bg":"#fce4ec","desc":"Buy and sell agricultural products with verified seller profiles and product photos.","page":"Marketplace"},
+            {"title":"Farmer Chat",        "icon":"CHAT", "bg":"#f3e5f5","desc":"Encrypted group chat rooms connecting Uganda's farming community securely.","page":"Farmer Chat"},
+        ]
 
-        row1_c1, row1_c2 = st.columns(2)
-        with row1_c1:
-            st.markdown("""<div class="feature-card feature-card-green">
-                <div style="font-size:2.2rem;">🌾</div>
-                <div style="font-weight:800;color:#fff;font-size:0.95rem;margin:6px 0 4px;">Farm AI Advisor</div>
-                <div style="color:#90A4AE;font-size:0.78rem;line-height:1.5;margin-bottom:8px;">Ask AI, diagnose crop photos, find real or AI-generated images & get real-time Uganda farming info.</div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("🌾 Open Farm AI", key="go_farm", use_container_width=True):
-                nav_to_tab_js("Farm AI")
-
-        with row1_c2:
-            st.markdown("""<div class="feature-card feature-card-blue">
-                <div style="font-size:2.2rem;">🌦️</div>
-                <div style="font-weight:800;color:#fff;font-size:0.95rem;margin:6px 0 4px;">Real-Time Climate</div>
-                <div style="color:#90A4AE;font-size:0.78rem;line-height:1.5;margin-bottom:8px;">Live weather for your location. 7-day forecast, rain & emergency floating alerts with alarm.</div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("🌦️ Open Climate", key="go_climate", use_container_width=True):
-                nav_to_tab_js("Climate")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        row2_c1, row2_c2 = st.columns(2)
-        with row2_c1:
-            st.markdown("""<div class="feature-card feature-card-orange">
-                <div style="font-size:2.2rem;">♻️</div>
-                <div style="font-weight:800;color:#fff;font-size:0.95rem;margin:6px 0 4px;">Waste Guide</div>
-                <div style="color:#90A4AE;font-size:0.78rem;line-height:1.5;margin-bottom:8px;">AI circular economy tips. Turn any waste category into income in Uganda.</div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("♻️ Open Waste Guide", key="go_waste", use_container_width=True):
-                nav_to_tab_js("Waste Guide")
-
-        with row2_c2:
-            st.markdown("""<div class="feature-card feature-card-orange">
-                <div style="font-size:2.2rem;">🤝</div>
-                <div style="font-weight:800;color:#fff;font-size:0.95rem;margin:6px 0 4px;">Green Marketplace</div>
-                <div style="color:#90A4AE;font-size:0.78rem;line-height:1.5;margin-bottom:8px;">Buy & sell green products with photos. Verified seller details for full traceability.</div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("🤝 Open Marketplace", key="go_market", use_container_width=True):
-                nav_to_tab_js("Marketplace")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("""<div class="feature-card feature-card-purple" style="padding:18px 16px 8px;">
-            <div style="font-size:2.2rem;">💬</div>
-            <div style="font-weight:800;color:#fff;font-size:0.95rem;margin:6px 0 4px;">Encrypted Farmer Chat</div>
-            <div style="color:#90A4AE;font-size:0.78rem;line-height:1.5;margin-bottom:8px;">🔒 End-to-end encrypted group chat rooms. Connect with farmers, share tips & trade leads securely. All messages saved permanently.</div>
-        </div>""", unsafe_allow_html=True)
-        if st.button("💬 Open Farmer Chat", key="go_chat", use_container_width=True):
-            nav_to_tab_js("Farmer Chat")
+        c1, c2 = st.columns(2)
+        for i, f in enumerate(features):
+            col = c1 if i % 2 == 0 else c2
+            with col:
+                st.markdown(f"""
+                <div class="feat-card">
+                    <div class="feat-icon" style="background:{f['bg']};">
+                        <span class="feat-icon-text">{f['icon']}</span>
+                    </div>
+                    <div class="feat-title">{f['title']}</div>
+                    <div class="feat-desc">{f['desc']}</div>
+                </div>""", unsafe_allow_html=True)
+                if st.button(f"Open {f['title']}", key=f"home_{i}", use_container_width=True):
+                    st.session_state.active_nav = f["page"]
+                    st.rerun()
+                st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
         st.markdown("""
-        <div class="quote-box" style="margin-top:20px;">
-            <p class="section-label">THEME 2026</p>
-            <p style="font-family:'Playfair Display',serif;font-style:italic;color:#c8e6c9;font-size:1rem;line-height:1.7;margin:6px 0;">
-            "Empowering Farmers on smart farming"</p>
-            <p style="color:#66BB6A;font-size:0.8rem;margin:0;">ELIAS CREATIONS</p>
+        <div style="background:#f9fbe7;border-radius:16px;padding:24px 28px;margin-top:8px;border:1.5px solid #dcedc8;">
+            <div style="font-family:'Poppins',sans-serif;font-weight:700;font-size:1rem;color:#1B5E20;margin-bottom:8px;">About EcoPulse</div>
+            <div style="font-size:0.88rem;color:#555;line-height:1.7;">
+                EcoPulse is an AI-powered platform built for Ugandan farmers and agro-entrepreneurs.
+                It brings together climate intelligence, agricultural advisory, waste management guidance,
+                a green trading marketplace, and secure farmer communication — all accessible from any smartphone browser.
+            </div>
+            <div style="margin-top:12px;font-size:0.8rem;color:#aaa;">Team GreenPulse &nbsp;|&nbsp; Elias Creations &nbsp;|&nbsp; Busitema University</div>
         </div>""", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # FARM AI
     # ══════════════════════════════════════════════════════════════════════════
-    with tab_farm:
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#1a4731,#2d7a4f);border-radius:16px;padding:20px 22px;margin-bottom:20px;">
-            <p class="section-label" style="color:#a8e6bf;">AI-POWERED · REAL-TIME · REAL PHOTOS · AI IMAGES</p>
-            <h2 style="font-family:'Playfair Display',serif;color:#fff;margin:4px 0;font-size:1.5rem;">🌾 Farm Advisory</h2>
-            <p style="color:#a8e6bf;font-size:0.82rem;margin:0;">Ask questions · Upload crop photos for diagnosis · Find real photos or generate images</p>
+    elif active == "Farm AI":
+        st.markdown("""<div class="page-header">
+            <div class="page-header-title">Farm AI Advisor</div>
+            <div class="page-header-sub">Ask questions, diagnose crop photos, find real images and get real-time Uganda farming info</div>
         </div>""", unsafe_allow_html=True)
 
-        farm_sub1, farm_sub2, farm_sub3 = st.tabs(["💬 Ask AI","📷 Photo Diagnosis","🖼️ Find/Generate Image"])
+        sub1, sub2, sub3 = st.tabs(["Ask AI", "Photo Diagnosis", "Find / Generate Image"])
 
-        # ── ASK AI ──────────────────────────────────────────────────────────────
-        with farm_sub1:
-            col_rt1, col_rt2 = st.columns(2)
-            with col_rt1:
-                if st.button("🌍 Uganda Farming News", key="btn_news"):
-                    with st.spinner("Fetching…"):
+        with sub1:
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Uganda Farming News", key="btn_news"):
+                    with st.spinner("Fetching..."):
                         info = get_realtime_info("current farming season, crop prices, and weather in Uganda 2026")
                     st.session_state.farm_messages.append({"role":"user","content":"Latest Uganda farming news?"})
-                    st.session_state.farm_messages.append({"role":"assistant","content":f"🌍 Real-Time Uganda Update:\n\n{info}"})
+                    st.session_state.farm_messages.append({"role":"assistant","content":f"Real-Time Uganda Update:\n\n{info}"})
                     st.rerun()
-            with col_rt2:
-                if st.button("📈 Crop Market Prices", key="btn_prices"):
-                    with st.spinner("Fetching…"):
+            with col2:
+                if st.button("Crop Market Prices", key="btn_prices"):
+                    with st.spinner("Fetching..."):
                         prices = get_realtime_info("current market prices for maize, beans, tomatoes, coffee in Uganda 2025-2026")
                     st.session_state.farm_messages.append({"role":"user","content":"Current crop prices in Uganda?"})
-                    st.session_state.farm_messages.append({"role":"assistant","content":f"📈 Uganda Crop Market Prices:\n\n{prices}"})
+                    st.session_state.farm_messages.append({"role":"assistant","content":f"Uganda Crop Market Prices:\n\n{prices}"})
                     st.rerun()
 
+            st.markdown("<br>", unsafe_allow_html=True)
             for msg in st.session_state.farm_messages:
-                css = "chat-ai" if msg["role"]=="assistant" else "chat-user"
-                pfx = "🤖" if msg["role"]=="assistant" else "👤"
-                st.markdown(f"<div class='{css}'>{pfx} {msg['content']}</div>", unsafe_allow_html=True)
+                if msg["role"] == "assistant":
+                    st.markdown(f"<div class='advisor-reply'><strong>Advisor:</strong> {msg['content']}</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div class='user-msg'><strong>You:</strong> {msg['content']}</div>", unsafe_allow_html=True)
 
             with st.form("farm_form", clear_on_submit=True):
-                user_input = st.text_input("", placeholder="e.g. What crops to plant now in Central Uganda?", label_visibility="collapsed")
-                submitted  = st.form_submit_button("Send ↑")
+                user_input = st.text_input("", placeholder="Ask anything about farming in Uganda...", label_visibility="collapsed")
+                submitted  = st.form_submit_button("Send")
 
             if submitted and user_input.strip():
                 st.session_state.farm_messages.append({"role":"user","content":user_input})
                 history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.farm_messages[:-1]]
-                with st.spinner("Getting AI advice…"):
-                    reply = ask_groq(
-                        "You are an expert Ugandan agricultural advisor. Give practical, actionable advice with current Uganda 2025-2026 context. Mention specific crops, regions, climate-smart practices.",
-                        user_input, history
-                    )
+                with st.spinner("Getting AI advice..."):
+                    reply = ask_groq("You are an expert Ugandan agricultural advisor. Give practical, actionable advice with current Uganda 2025-2026 context.", user_input, history)
                 st.session_state.farm_messages.append({"role":"assistant","content":reply})
                 st.rerun()
 
-            if st.button("🗑️ Clear Chat", key="clear_chat"):
+            if st.button("Clear Chat", key="clear_chat"):
                 st.session_state.farm_messages = [st.session_state.farm_messages[0]]
                 st.rerun()
 
-        # ── PHOTO DIAGNOSIS ─────────────────────────────────────────────────────
-        with farm_sub2:
-            st.markdown("<div class='image-tip'>📌 Upload a clear photo of your crop, leaves, soil or pest. The AI will analyze it and give you specific Uganda-context treatment advice.</div>", unsafe_allow_html=True)
-
+        with sub2:
+            st.markdown('<div class="info-box">Upload a clear photo of your crop, leaves, soil or pest. The AI will analyze it and give Uganda-specific treatment advice.</div>', unsafe_allow_html=True)
             farm_image = st.file_uploader("Upload farm photo", type=["jpg","jpeg","png"], key="farm_img", label_visibility="collapsed")
-
             if farm_image:
-                col_img, col_info = st.columns([1,2])
+                col_img, col_info = st.columns([1, 2])
                 with col_img:
                     st.image(farm_image, use_container_width=True, caption="Uploaded photo")
                 with col_info:
-                    diag_q = st.text_input(
-                        "What do you want to know about this photo?",
-                        placeholder="e.g. What disease is on my maize leaves? How do I treat it?",
-                        key="diag_q"
-                    )
-                    if st.button("🔬 Analyze Photo", key="analyze_btn"):
-                        with st.spinner("AI is analyzing your photo…"):
+                    diag_q = st.text_input("What do you want to know?", placeholder="e.g. What disease is on my maize leaves?", key="diag_q")
+                    if st.button("Analyze Photo", key="analyze_btn"):
+                        with st.spinner("Analyzing your photo..."):
                             farm_image.seek(0)
-                            img_bytes = farm_image.read()
-                            img_b64   = base64.b64encode(img_bytes).decode("utf-8")
-                            raw_type  = farm_image.type or "image/jpeg"
-                            if "png" in raw_type:
-                                img_type = "image/png"
-                            elif "gif" in raw_type:
-                                img_type = "image/gif"
-                            else:
-                                img_type = "image/jpeg"
-
-                            question = diag_q.strip() if diag_q.strip() else "Analyze this farm photo carefully. Identify any diseases, pests, nutrient deficiencies or soil problems. Give specific treatment and prevention advice relevant to Uganda farmers."
-
-                            result = ask_groq_vision(question, img_b64, img_type)
+                            img_b64  = b64lib.b64encode(farm_image.read()).decode("utf-8")
+                            raw_type = farm_image.type or "image/jpeg"
+                            img_type = "image/png" if "png" in raw_type else "image/jpeg"
+                            question = diag_q.strip() if diag_q.strip() else "Analyze this farm photo carefully. Identify any diseases, pests, soil problems and give specific Uganda-relevant treatment advice."
+                            result   = ask_groq_vision(question, img_b64, img_type)
                             st.session_state.diagnosis_result = result
 
             if st.session_state.diagnosis_result:
-                st.markdown(f"""
-                <div class="card card-green" style="margin-top:14px;">
-                    <p class="section-label">📸 AI DIAGNOSIS RESULT</p>
-                    <div style="color:#c8e6c9;font-size:0.9rem;line-height:1.8;white-space:pre-wrap;">{st.session_state.diagnosis_result}</div>
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown(f"""<div class="alert-success">
+                    <div class="alert-label" style="color:#2E7D32;">Diagnosis Result</div>
+                    <div class="alert-text" style="white-space:pre-wrap;">{st.session_state.diagnosis_result}</div>
                 </div>""", unsafe_allow_html=True)
-                if st.button("🗑️ Clear Diagnosis", key="clear_diag"):
+                if st.button("Clear Diagnosis", key="clear_diag"):
                     st.session_state.diagnosis_result = None
                     st.rerun()
 
-        # ── FIND / GENERATE IMAGE ───────────────────────────────────────────────
-        with farm_sub3:
-            st.markdown("""<div class="image-tip">
-            🖼️ Search for a real photo, generate an AI image, or create a simple architectural plan (e.g. animal housing).
-            </div>""", unsafe_allow_html=True)
-
-            image_mode = st.radio(
-                "What do you need?",
-                ["📷 Real Photo (search the web)", "🎨 AI Generated Image", "📐 Architectural Plan / Diagram"],
-                key="image_mode_select"
-            )
-
-            quick_prompt = st.selectbox("Choose a quick example or type your own below:", [
-                "— Type your own description below —",
+        with sub3:
+            st.markdown('<div class="info-box">Search for real photos from the web, generate AI images, or create architectural plans for farm structures like animal houses.</div>', unsafe_allow_html=True)
+            image_mode = st.radio("What do you need?", ["Real Photo (search the web)", "AI Generated Image", "Architectural Plan / Diagram"], key="image_mode")
+            quick_prompt = st.selectbox("Choose a quick example or type your own:", [
+                "Type your own description below",
                 "Healthy maize farm in Uganda",
                 "Dairy cow in a Uganda farm",
                 "Drip irrigation system on a small farm",
@@ -853,246 +874,207 @@ def show_main_app():
                 "Organic compost pit",
                 "Banana plantation in Western Uganda",
                 "Coffee farm in Bugisu region",
-                "Tomato greenhouse farming",
-                "Flooded farmland after heavy rains",
+                "Tomato greenhouse farming Uganda",
             ], key="quick_img")
+            custom_prompt = st.text_area("Or describe your own image:", placeholder="e.g. A dairy cow standing in a green pasture in Uganda...", height=80, key="custom_img")
 
-            custom_prompt = st.text_area(
-                "Or describe your own image:",
-                placeholder="e.g. A dairy cow standing in a green pasture in Uganda...",
-                height=80, key="custom_img_prompt"
-            )
-
-            if st.button("🔍 Get Image", key="gen_img_btn", use_container_width=True):
-                if custom_prompt.strip():
-                    final_prompt = custom_prompt.strip()
-                elif quick_prompt != "— Type your own description below —":
-                    final_prompt = quick_prompt
-                else:
-                    final_prompt = None
-
-                if not final_prompt:
+            if st.button("Get Image", key="gen_img_btn", use_container_width=True):
+                final = custom_prompt.strip() if custom_prompt.strip() else (quick_prompt if quick_prompt != "Type your own description below" else None)
+                if not final:
                     st.warning("Please choose an example or type a description.")
                 else:
-                    if image_mode.startswith("📷"):
-                        mode = "auto"
-                        spinner_text = "🔍 Searching for a real photo…"
-                    elif image_mode.startswith("🎨"):
-                        mode = "ai"
-                        spinner_text = "🎨 Generating AI image… this takes 10-20 seconds…"
-                    else:
-                        mode = "plan"
-                        spinner_text = "📐 Generating architectural plan…"
-
-                    with st.spinner(spinner_text):
-                        result = get_image(final_prompt, mode=mode)
+                    mode = "auto" if "Real" in image_mode else ("ai" if "AI" in image_mode else "plan")
+                    spin = "Searching for a real photo..." if mode=="auto" else ("Generating image..." if mode=="ai" else "Generating architectural plan...")
+                    with st.spinner(spin):
+                        result = get_image(final, mode=mode)
                         if result:
                             st.session_state.generated_image_url    = result["url"]
-                            st.session_state.generated_image_prompt = result.get("prompt", final_prompt)
+                            st.session_state.generated_image_prompt = result.get("prompt", final)
                             st.session_state.generated_image_source = result.get("source", "unknown")
                             st.session_state.generated_image_credit = result.get("photographer")
                         else:
                             st.session_state.generated_image_url = None
-                            st.warning("No real photo found for that description. Try AI Generated Image instead.")
+                            st.warning("No real photo found. Try AI Generated Image instead.")
 
             if st.session_state.generated_image_url:
                 source = st.session_state.get("generated_image_source", "")
-                if source == "real_photo":
-                    label = "📷 REAL PHOTO"
-                    credit = st.session_state.get("generated_image_credit")
-                    sub = f"Photo by {credit} on Pexels" if credit else "Source: Pexels"
-                elif source == "architectural_plan":
-                    label = "📐 ARCHITECTURAL PLAN"
-                    sub = f'"{st.session_state.generated_image_prompt}"'
-                else:
-                    label = "🎨 AI GENERATED IMAGE"
-                    sub = f'"{st.session_state.generated_image_prompt}"'
-
-                st.markdown(f"""
-                <div class="card card-green" style="margin-top:12px;">
-                    <p class="section-label">{label}</p>
-                    <p style="color:#90A4AE;font-size:0.75rem;margin-bottom:10px;font-style:italic;">{sub}</p>
-                </div>""", unsafe_allow_html=True)
+                label  = "Real Photo" if source=="real_photo" else ("Architectural Plan" if source=="architectural_plan" else "AI Generated Image")
+                credit = st.session_state.get("generated_image_credit")
+                sub    = f"Photo by {credit} on Pexels" if credit else f'"{st.session_state.generated_image_prompt}"'
+                st.markdown(f"<strong>{label}</strong> &nbsp; <span style='color:#888;font-size:0.8rem;'>{sub}</span>", unsafe_allow_html=True)
                 st.image(st.session_state.generated_image_url, use_container_width=True)
-                st.markdown(f"[📥 Download Image]({st.session_state.generated_image_url})")
-                if st.button("🔄 Search/Generate Another", key="regen_btn"):
+                st.markdown(f"[Download Image]({st.session_state.generated_image_url})")
+                if st.button("Search / Generate Another", key="regen_btn"):
                     st.session_state.generated_image_url = None
-                    st.session_state.generated_image_prompt = None
                     st.rerun()
 
-    # ── WASTE GUIDE ─────────────────────────────────────────────────────────────
-    with tab_waste:
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#1a2a1a,#2a4a2a);border-radius:16px;padding:20px 22px;margin-bottom:20px;">
-            <p class="section-label" style="color:#81C784;">CIRCULAR ECONOMY</p>
-            <h2 style="font-family:'Playfair Display',serif;color:#fff;margin:4px 0;font-size:1.5rem;">♻️ Waste Management Guide</h2>
+    # ══════════════════════════════════════════════════════════════════════════
+    # WASTE GUIDE
+    # ══════════════════════════════════════════════════════════════════════════
+    elif active == "Waste Guide":
+        st.markdown("""<div class="page-header">
+            <div class="page-header-title">Waste Management Guide</div>
+            <div class="page-header-sub">Turn agricultural and household waste into income using circular economy principles</div>
         </div>""", unsafe_allow_html=True)
 
-        selected_waste = st.selectbox("Choose a waste category:", options=[w["name"] for w in WASTE_CATEGORIES],
-            format_func=lambda x: f"{next(w['icon'] for w in WASTE_CATEGORIES if w['name']==x)}  {x}")
-        chosen = next(w for w in WASTE_CATEGORIES if w["name"]==selected_waste)
-        st.markdown(f"""<div class="card" style="border-color:{chosen['color']}44;margin-top:10px;">
-            <div style="font-size:2.5rem;margin-bottom:8px;">{chosen['icon']}</div>
-            <div style="font-weight:800;color:{chosen['color']};font-size:1rem;margin-bottom:6px;">{chosen['name']}</div>
-            <div style="color:#c8e6c9;font-size:0.85rem;line-height:1.6;">{chosen['tip']}</div>
+        selected_waste = st.selectbox("Choose a waste category:", options=[w["name"] for w in WASTE_CATEGORIES])
+        chosen = next(w for w in WASTE_CATEGORIES if w["name"] == selected_waste)
+        st.markdown(f"""<div style="background:#fff;border:1.5px solid #e0e0e0;border-left:4px solid {chosen['color']};border-radius:10px;padding:16px;margin:12px 0;">
+            <div style="font-weight:700;color:#1a1a1a;font-size:0.95rem;margin-bottom:4px;">{chosen['name']}</div>
+            <div style="font-size:0.84rem;color:#666;line-height:1.55;">{chosen['tip']}</div>
         </div>""", unsafe_allow_html=True)
 
         cw1, cw2 = st.columns(2)
         with cw1:
-            if st.button("🤖 Get AI Tips", key="waste_ai"):
-                with st.spinner("Generating tips…"):
-                    tip = ask_groq("Circular economy expert for Uganda. Give 3 practical numbered tips showing income opportunities. Max 2 sentences each.",f"Tips for: {selected_waste}")
-                st.markdown(f"""<div class="card card-green" style="margin-top:12px;">
-                    <p class="section-label">AI TIPS — {selected_waste.upper()}</p>
-                    <div style="color:#c8e6c9;font-size:0.9rem;line-height:1.8;white-space:pre-wrap;">{tip}</div>
+            if st.button("Get AI Tips", key="waste_ai"):
+                with st.spinner("Generating tips..."):
+                    tip = ask_groq("Circular economy expert for Uganda. Give 3 practical numbered tips showing income opportunities. Max 2 sentences each.", f"Tips for: {selected_waste}")
+                st.markdown(f"""<div class="alert-success" style="margin-top:12px;">
+                    <div class="alert-label" style="color:#2E7D32;">AI Tips — {selected_waste}</div>
+                    <div class="alert-text" style="white-space:pre-wrap;">{tip}</div>
                 </div>""", unsafe_allow_html=True)
         with cw2:
-            if st.button("🌍 Real-Time Market Info", key="waste_market"):
-                with st.spinner("Fetching…"):
+            if st.button("Real-Time Market Info", key="waste_market"):
+                with st.spinner("Fetching..."):
                     info = get_realtime_info(f"current market for {selected_waste} recycling in Uganda 2025-2026")
-                st.markdown(f"""<div class="realtime-box" style="margin-top:12px;">
-                    <p class="section-label" style="color:#64B5F6;">MARKET INFO</p>
-                    <div style="color:#c8e6c9;font-size:0.9rem;line-height:1.8;white-space:pre-wrap;">{info}</div>
+                st.markdown(f"""<div class="alert-info" style="margin-top:12px;">
+                    <div class="alert-label" style="color:#1565C0;">Market Info</div>
+                    <div class="alert-text" style="white-space:pre-wrap;">{info}</div>
                 </div>""", unsafe_allow_html=True)
 
+        st.markdown("<br><strong>All Waste Categories</strong>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         cols = st.columns(3)
         for i, w in enumerate(WASTE_CATEGORIES):
-            with cols[i%3]:
-                st.markdown(f"""<div style="text-align:center;background:rgba(255,255,255,0.04);border:1px solid {w['color']}33;border-radius:12px;padding:14px 8px;margin-bottom:8px;">
-                    <div style="font-size:1.8rem;">{w['icon']}</div>
-                    <div style="font-size:0.72rem;font-weight:700;color:{w['color']};margin-top:4px;">{w['name']}</div>
+            with cols[i % 3]:
+                st.markdown(f"""<div style="background:#fff;border:1.5px solid #e0e0e0;border-left:4px solid {w['color']};border-radius:10px;padding:14px;margin-bottom:10px;">
+                    <div style="font-weight:700;color:#1a1a1a;font-size:0.85rem;">{w['name']}</div>
                 </div>""", unsafe_allow_html=True)
 
-    # ── CLIMATE ─────────────────────────────────────────────────────────────────
-    with tab_climate:
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#0d2137,#1a3a5c);border-radius:16px;padding:20px 22px;margin-bottom:20px;">
-            <p class="section-label" style="color:#64B5F6;">REAL-TIME · LOCATION-BASED</p>
-            <h2 style="font-family:'Playfair Display',serif;color:#fff;margin:4px 0;font-size:1.5rem;">🌦️ Climate Dashboard</h2>
-            <p style="color:#64B5F6;font-size:0.82rem;margin:0;">Live weather data for your location with automatic alerts.</p>
+    # ══════════════════════════════════════════════════════════════════════════
+    # CLIMATE
+    # ══════════════════════════════════════════════════════════════════════════
+    elif active == "Climate":
+        st.markdown("""<div class="page-header">
+            <div class="page-header-title">Climate Dashboard</div>
+            <div class="page-header-sub">Real-time weather data and automated alerts for your location</div>
         </div>""", unsafe_allow_html=True)
 
         if not st.session_state.location_permission:
-            st.markdown(f"""<div class="loc-banner">
-                📍 Currently showing weather for <b>{user_data.get('district','your district')}</b> (from your profile).
-                Grant precise location for more accurate real-time data.
+            st.markdown(f"""<div class="alert-info">
+                <div class="alert-label" style="color:#1565C0;">Location</div>
+                <div class="alert-text">Currently showing weather for <strong>{user_data.get('district','your district')}</strong> (from your profile). Allow precise location for more accurate data.</div>
             </div>""", unsafe_allow_html=True)
             st.components.v1.html(GEOLOCATION_JS, height=60)
         else:
-            st.markdown(f"""<div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.25);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#81C784;">
-                📍 <b>GPS Active</b> — Showing real-time weather for your exact location.
-                <span style="font-size:0.7rem;color:#546E7A;margin-left:8px;">{st.session_state.user_lat:.4f}, {st.session_state.user_lon:.4f}</span>
+            st.markdown(f"""<div class="alert-success">
+                <div class="alert-label" style="color:#2E7D32;">GPS Active</div>
+                <div class="alert-text">Showing real-time weather for your exact location — {st.session_state.user_lat:.4f}, {st.session_state.user_lon:.4f}</div>
             </div>""", unsafe_allow_html=True)
 
-        if st.button("🔄 Refresh Weather"):
+        if st.button("Refresh Weather"):
             st.session_state.last_weather_fetch = None
             fetch_weather(user_data)
             st.rerun()
 
         wd       = st.session_state.weather_data
-        loc_name = st.session_state.weather_location or user_data.get("district","Uganda")
+        loc_name = st.session_state.weather_location or user_data.get("district", "Uganda")
 
         if wd:
-            current   = wd.get("current",{})
-            daily     = wd.get("daily",{})
-            temp      = current.get("temperature_2m","—")
-            precip    = current.get("precipitation",0)
-            humidity  = current.get("relative_humidity_2m","—")
-            wind      = current.get("windspeed_10m","—")
-            code      = current.get("weathercode",0)
-            condition = WEATHER_CODES.get(code,"Unknown")
+            current   = wd.get("current", {})
+            daily     = wd.get("daily", {})
+            temp      = current.get("temperature_2m", "--")
+            precip    = current.get("precipitation", 0)
+            humidity  = current.get("relative_humidity_2m", "--")
+            wind      = current.get("windspeed_10m", "--")
+            code      = current.get("weathercode", 0)
+            condition = WEATHER_CODES.get(code, "Unknown")
 
-            st.markdown(f"""
-            <div class="weather-card">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+            st.markdown(f"""<div class="wx-card">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px;">
                     <div>
-                        <div class="weather-label">NOW · {loc_name.upper()}</div>
-                        <div class="weather-big">{temp}°C</div>
-                        <div style="color:#90CAF9;font-size:0.9rem;margin-top:4px;">{condition}</div>
+                        <div style="font-size:0.78rem;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">NOW — {loc_name.upper()}</div>
+                        <div class="wx-temp">{temp}°C</div>
+                        <div class="wx-cond">{condition}</div>
                     </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
-                        <div style="text-align:center;"><div style="font-size:1.3rem;">🌧️</div>
-                            <div style="font-family:'Space Mono',monospace;font-weight:700;color:#64B5F6;">{precip}mm</div>
-                            <div class="weather-label">Rain</div></div>
-                        <div style="text-align:center;"><div style="font-size:1.3rem;">💧</div>
-                            <div style="font-family:'Space Mono',monospace;font-weight:700;color:#64B5F6;">{humidity}%</div>
-                            <div class="weather-label">Humidity</div></div>
-                        <div style="text-align:center;"><div style="font-size:1.3rem;">💨</div>
-                            <div style="font-family:'Space Mono',monospace;font-weight:700;color:#64B5F6;">{wind}km/h</div>
-                            <div class="weather-label">Wind</div></div>
-                        <div style="text-align:center;"><div style="font-size:1.3rem;">🌡️</div>
-                            <div style="font-family:'Space Mono',monospace;font-weight:700;color:#64B5F6;">{temp}°C</div>
-                            <div class="weather-label">Temp</div></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div class="wx-stat"><div class="wx-stat-val">{precip}mm</div><div class="wx-stat-lbl">Rainfall</div></div>
+                        <div class="wx-stat"><div class="wx-stat-val">{humidity}%</div><div class="wx-stat-lbl">Humidity</div></div>
+                        <div class="wx-stat"><div class="wx-stat-val">{wind}km/h</div><div class="wx-stat-lbl">Wind</div></div>
+                        <div class="wx-stat"><div class="wx-stat-val">{temp}°C</div><div class="wx-stat-lbl">Temp</div></div>
                     </div>
                 </div>
             </div>""", unsafe_allow_html=True)
 
             alerts = parse_weather_alerts(wd, loc_name)
-            st.markdown("<p class='section-label'>⚠️ ACTIVE ALERTS FOR YOUR LOCATION</p>", unsafe_allow_html=True)
+            st.markdown("<strong>Active Alerts</strong>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            level_colors = {"danger":"#c62828","warning":"#f57f17","info":"#1565C0","success":"#2E7D32"}
             if alerts:
-                level_colors={"danger":"#f44336","warning":"#FF9800","info":"#2196F3","success":"#4CAF50"}
                 for alert in alerts:
-                    color = level_colors.get(alert["level"],"#81C784")
+                    color = level_colors.get(alert["level"], "#2E7D32")
                     st.markdown(f"""<div class="alert-{alert['level']}">
-                        <div class="alert-region" style="color:{color};">{alert['icon']} {alert['title']}</div>
+                        <div class="alert-label" style="color:{color};">{alert['title']}</div>
                         <div class="alert-text">{alert['message']}</div>
                     </div>""", unsafe_allow_html=True)
             else:
                 st.markdown("""<div class="alert-success">
-                    <div class="alert-region" style="color:#4CAF50;">✅ NO ACTIVE ALERTS</div>
-                    <div class="alert-text">Conditions are normal. No weather emergencies detected.</div>
+                    <div class="alert-label" style="color:#2E7D32;">No Active Alerts</div>
+                    <div class="alert-text">Current conditions are normal for your location.</div>
                 </div>""", unsafe_allow_html=True)
 
             if daily.get("time"):
-                st.markdown("<br><p class='section-label'>7-DAY FORECAST</p>", unsafe_allow_html=True)
+                st.markdown("<br><strong>7-Day Forecast</strong>", unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
                 days   = daily["time"][:7]
-                t_max  = daily.get("temperature_2m_max",[0]*7)[:7]
-                t_min  = daily.get("temperature_2m_min",[0]*7)[:7]
-                rain   = daily.get("precipitation_sum",[0]*7)[:7]
-                pcodes = daily.get("weathercode",[0]*7)[:7]
-                rprob  = daily.get("precipitation_probability_max",[0]*7)[:7]
+                t_max  = daily.get("temperature_2m_max", [0]*7)[:7]
+                t_min  = daily.get("temperature_2m_min", [0]*7)[:7]
+                rain   = daily.get("precipitation_sum",  [0]*7)[:7]
+                pcodes = daily.get("weathercode",        [0]*7)[:7]
+                rprob  = daily.get("precipitation_probability_max", [0]*7)[:7]
                 cols7  = st.columns(7)
-                for i,(day,tmax,tmin,r,wc,rp) in enumerate(zip(days,t_max,t_min,rain,pcodes,rprob)):
-                    try: day_str=datetime.strptime(day,"%Y-%m-%d").strftime("%a\n%d")
-                    except: day_str=day
-                    emoji = "⛈️" if wc>=95 else ("🌧️" if wc>=61 else ("🌦️" if wc>=51 else ("☁️" if wc>=2 else "☀️")))
+                for i, (day, tmax, tmin, r, wc, rp) in enumerate(zip(days, t_max, t_min, rain, pcodes, rprob)):
+                    try:
+                        day_str = datetime.strptime(day, "%Y-%m-%d").strftime("%a %d")
+                    except:
+                        day_str = day
+                    cond = "Storm" if wc>=95 else ("Rain" if wc>=61 else ("Showers" if wc>=51 else ("Cloudy" if wc>=2 else "Sunny")))
                     with cols7[i]:
                         st.markdown(f"""<div class="day-card">
-                            <div style="font-size:0.65rem;color:#546E7A;font-family:'Space Mono',monospace;white-space:pre;">{day_str}</div>
-                            <div style="font-size:1.3rem;margin:3px 0;">{emoji}</div>
-                            <div style="font-size:0.78rem;font-weight:700;color:#fff;">{tmax:.0f}°</div>
-                            <div style="font-size:0.65rem;color:#546E7A;">{tmin:.0f}°</div>
-                            <div style="font-size:0.62rem;color:#64B5F6;margin-top:3px;">{r:.1f}mm</div>
-                            <div style="font-size:0.6rem;color:#90CAF9;">{rp}%🌧</div>
+                            <div style="font-size:0.65rem;color:#888;font-weight:600;">{day_str}</div>
+                            <div style="font-size:0.72rem;font-weight:700;color:#2E7D32;margin:4px 0;">{cond}</div>
+                            <div style="font-size:0.8rem;font-weight:700;color:#1a1a1a;">{tmax:.0f}°</div>
+                            <div style="font-size:0.68rem;color:#888;">{tmin:.0f}°</div>
+                            <div style="font-size:0.65rem;color:#1565C0;margin-top:3px;">{r:.1f}mm</div>
+                            <div style="font-size:0.62rem;color:#888;">{rp}% rain</div>
                         </div>""", unsafe_allow_html=True)
 
-                st.markdown("<br><p class='section-label'>RAINFALL FORECAST (7 DAYS)</p>", unsafe_allow_html=True)
-                chart_df = pd.DataFrame({
+                st.markdown("<br>", unsafe_allow_html=True)
+                df_rain = pd.DataFrame({
                     "Day":[datetime.strptime(d,"%Y-%m-%d").strftime("%a %d") for d in daily["time"][:7]],
                     "Rainfall (mm)":daily["precipitation_sum"][:7]
                 }).set_index("Day")
-                st.bar_chart(chart_df, color="#1E88E5", height=200)
+                st.bar_chart(df_rain, color="#2E7D32", height=200)
 
-                st.markdown("<p class='section-label'>TEMPERATURE FORECAST</p>", unsafe_allow_html=True)
-                temp_df = pd.DataFrame({
+                df_temp = pd.DataFrame({
                     "Day":[datetime.strptime(d,"%Y-%m-%d").strftime("%a %d") for d in daily["time"][:7]],
-                    "Max °C":daily.get("temperature_2m_max",[])[:7],
-                    "Min °C":daily.get("temperature_2m_min",[])[:7],
+                    "Max C":daily.get("temperature_2m_max",[])[:7],
+                    "Min C":daily.get("temperature_2m_min",[])[:7],
                 }).set_index("Day")
-                st.line_chart(temp_df, color=["#FF5722","#2196F3"], height=200)
+                st.line_chart(df_temp, color=["#c62828","#1565C0"], height=180)
         else:
-            st.warning("Could not load weather data. Check your internet connection and try refreshing.")
+            st.warning("Could not load weather data. Check your connection and try refreshing.")
 
-    # ── MARKETPLACE ─────────────────────────────────────────────────────────────
-    with tab_market:
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#2d1a00,#5d3a00);border-radius:16px;padding:20px 22px;margin-bottom:20px;">
-            <p class="section-label" style="color:#FFB74D;">GREEN ECONOMY · VERIFIED SELLERS · IMAGES SAVED</p>
-            <h2 style="font-family:'Playfair Display',serif;color:#fff;margin:4px 0;font-size:1.5rem;">🤝 Marketplace</h2>
-            <p style="color:#FFB74D;font-size:0.82rem;margin:0;">Product photos & seller details saved permanently in database.</p>
+    # ══════════════════════════════════════════════════════════════════════════
+    # MARKETPLACE
+    # ══════════════════════════════════════════════════════════════════════════
+    elif active == "Marketplace":
+        st.markdown("""<div class="page-header">
+            <div class="page-header-title">Green Marketplace</div>
+            <div class="page-header-sub">Buy and sell agricultural products with verified seller details and product photos</div>
         </div>""", unsafe_allow_html=True)
 
-        filter_type = st.radio("Filter:", ["All","Selling 🟢","Buying 🔵"], horizontal=True)
+        filter_type = st.radio("Filter:", ["All", "Selling", "Buying"], horizontal=True)
 
         db_listings = db_get_listings()
         default_listings = [
@@ -1105,41 +1087,35 @@ def show_main_app():
 
         for listing in all_listings:
             type_val = listing.get("type","sell")
-            if filter_type=="Selling 🟢" and type_val!="sell": continue
-            if filter_type=="Buying 🔵"  and type_val!="buy":  continue
-
+            if filter_type == "Selling" and type_val != "sell": continue
+            if filter_type == "Buying"  and type_val != "buy":  continue
             badge_class = "sell-badge" if type_val=="sell" else "buy-badge"
-            badge_text  = "SELL"       if type_val=="sell" else "BUY"
+            badge_text  = "SELLING"    if type_val=="sell" else "BUYING"
 
             img_b64 = listing.get("image_base64")
             if img_b64:
                 try:
-                    img_bytes = base64.b64decode(img_b64)
-                    st.image(img_bytes, use_container_width=True, caption=listing["title"])
+                    st.image(b64lib.b64decode(img_b64), use_container_width=True, caption=listing["title"])
                 except:
-                    st.markdown("""<div style="background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);border-radius:10px 10px 0 0;padding:16px;text-align:center;color:#546E7A;font-size:0.8rem;">📷 Image unavailable</div>""", unsafe_allow_html=True)
-            else:
-                st.markdown("""<div style="background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);border-radius:10px 10px 0 0;padding:16px;text-align:center;color:#546E7A;font-size:0.8rem;">📷 No photo uploaded</div>""", unsafe_allow_html=True)
-
-            st.markdown(f"""
-            <div class="market-card" style="border-radius:0 0 14px 14px;border-top:none;">
-                <div class="market-body">
+                    pass
+            st.markdown(f"""<div class="mk-card">
+                <div class="mk-body">
                     <span class="{badge_class}">{badge_text}</span>
-                    <div class="market-title">{listing['title']}</div>
-                    <div class="market-meta">{listing.get('description','')}</div>
-                    <div><span class="market-price">{listing['price']}</span><span class="market-tag">{listing.get('tag','')}</span></div>
+                    <div class="mk-title">{listing['title']}</div>
+                    <div class="mk-meta">{listing.get('description','')}</div>
+                    <div><span class="mk-price">{listing['price']}</span><span class="mk-tag">{listing.get('tag','')}</span></div>
                 </div>
-                <div class="seller-info">
-                    👤 <strong>{listing['seller']}</strong>
-                    <span class="verified-badge">✓ SELLER</span>
-                    &nbsp;&nbsp;📞 {listing.get('phone','N/A')}
-                    &nbsp;&nbsp;📍 {listing.get('district','N/A')} District
-                    &nbsp;&nbsp;📅 {listing.get('posted_on','')}
+                <div class="mk-seller">
+                    <strong>{listing['seller']}</strong>
+                    <span class="verified">Verified</span>
+                    &nbsp;&nbsp; Tel: {listing.get('phone','N/A')}
+                    &nbsp;&nbsp; {listing.get('district','N/A')} District
+                    &nbsp;&nbsp; {listing.get('posted_on','')}
                 </div>
-            </div><br>""", unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
 
-        st.markdown("<p class='section-label'>POST A NEW LISTING</p>", unsafe_allow_html=True)
-        with st.expander("➕ Add your listing with photo"):
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("Post a New Listing"):
             new_title = st.text_input("Title *", placeholder="e.g. Fresh Maize — 100kg")
             new_desc  = st.text_area("Description *", height=70)
             mc1, mc2  = st.columns(2)
@@ -1153,77 +1129,73 @@ def show_main_app():
                 new_phone    = st.text_input("Phone *", value=user_data["phone"])
             new_image = st.file_uploader("Product Photo (saved permanently)", type=["jpg","jpeg","png"], key="new_img")
             if new_image:
-                st.image(new_image, width=200, caption="Preview")
-
-            if st.button("📤 Submit Listing", key="submit_listing"):
+                st.image(new_image, width=200)
+            if st.button("Submit Listing", key="submit_listing"):
                 if new_title and new_price and new_desc:
                     img_bytes = None
                     if new_image:
                         new_image.seek(0)
                         img_bytes = new_image.read()
                     price_str = f"UGX {new_price}" if not new_price.startswith("UGX") else new_price
-                    saved = db_save_listing(
-                        new_title, new_desc, user_data["full_name"],
-                        new_phone, new_location, new_district,
-                        price_str, "sell" if new_type=="Selling" else "buy",
-                        new_tag, img_bytes, user
-                    )
+                    saved = db_save_listing(new_title, new_desc, user_data["full_name"], new_phone, new_location, new_district, price_str, "sell" if new_type=="Selling" else "buy", new_tag, img_bytes, user)
                     if saved:
-                        st.success("✅ Listing posted and saved to database! Refresh to see it.")
+                        st.success("Listing posted successfully!")
                         st.rerun()
                 else:
                     st.warning("Please fill in all required fields.")
 
-    # ── FARMER CHAT ─────────────────────────────────────────────────────────────
-    with tab_chat:
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#1a0a2e,#2d1a4f);border-radius:16px;padding:20px 22px;margin-bottom:20px;">
-            <p class="section-label" style="color:#CE93D8;">END-TO-END ENCRYPTED · SAVED TO DATABASE</p>
-            <h2 style="font-family:'Playfair Display',serif;color:#fff;margin:4px 0;font-size:1.5rem;">💬 Farmer Chat Rooms</h2>
-            <p style="color:#CE93D8;font-size:0.82rem;margin:0;">🔒 All messages encrypted and saved. History always available.</p>
+    # ══════════════════════════════════════════════════════════════════════════
+    # FARMER CHAT
+    # ══════════════════════════════════════════════════════════════════════════
+    elif active == "Farmer Chat":
+        st.markdown("""<div class="page-header">
+            <div class="page-header-title">Farmer Chat</div>
+            <div class="page-header-sub">Encrypted group chat rooms — messages secured and saved permanently</div>
         </div>""", unsafe_allow_html=True)
 
-        st.markdown("<p class='section-label'>CHOOSE A ROOM</p>", unsafe_allow_html=True)
-        room_cols = st.columns(2)
-        for idx,(room_key,room_info) in enumerate(CHAT_ROOMS.items()):
-            with room_cols[idx%2]:
-                is_active = st.session_state.active_room==room_key
-                if st.button(f"{'✅ ' if is_active else ''}{room_info['name']}", key=f"room_{room_key}", help=room_info['desc']):
+        st.markdown("<strong>Select a Room</strong>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        room_cols = st.columns(4)
+        for idx, (room_key, room_info) in enumerate(CHAT_ROOMS.items()):
+            with room_cols[idx]:
+                is_active = st.session_state.active_room == room_key
+                if st.button(room_info["name"], key=f"room_{room_key}", use_container_width=True):
                     st.session_state.active_room = room_key
                     st.rerun()
+                if is_active:
+                    st.markdown("<div style='height:3px;background:#2E7D32;border-radius:2px;margin-top:-4px;'></div>", unsafe_allow_html=True)
 
         active_room = st.session_state.active_room
         room_info   = CHAT_ROOMS[active_room]
-        st.markdown(f"""<div style="margin:16px 0 10px;">
-            <span style="font-size:1rem;font-weight:800;color:#fff;">{room_info['name']}</span>
-            <span style="font-size:0.7rem;color:#CE93D8;font-family:'Space Mono',monospace;margin-left:10px;">🔒 ENCRYPTED</span>
+        st.markdown(f"""<div style="margin:20px 0 14px;display:flex;align-items:center;gap:10px;">
+            <span style="font-weight:700;font-size:1rem;color:#1a1a1a;">{room_info['name']}</span>
+            <span style="font-size:0.75rem;background:#e8f5e9;color:#2E7D32;padding:3px 10px;border-radius:4px;font-weight:600;">Encrypted</span>
         </div>""", unsafe_allow_html=True)
 
         messages = db_get_messages(active_room, limit=60)
         if not messages:
-            st.markdown("""<div style="text-align:center;padding:40px 20px;color:#546E7A;font-size:0.85rem;">
-                💬 No messages yet. Be the first to say something!</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="alert-info"><div class="alert-text">No messages yet in this room. Be the first to say something.</div></div>', unsafe_allow_html=True)
         else:
             for msg in messages:
-                is_me     = msg["sender"]==user
+                is_me     = msg["sender"] == user
                 decrypted = decrypt_message(msg["encrypted_text"])
                 if is_me:
                     st.markdown(f"""<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:8px;">
-                        <div class="msg-bubble-me">{decrypted}
-                            <div class="msg-time">🔒 {msg['msg_time']} · {msg['msg_date']}</div>
+                        <div class="msg-me">{decrypted}
+                            <div class="msg-time">{msg['msg_time']} — {msg['msg_date']}</div>
                         </div></div>""", unsafe_allow_html=True)
                 else:
                     st.markdown(f"""<div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:8px;">
                         <div class="msg-name">{msg['display_name']}</div>
-                        <div class="msg-bubble-other">{decrypted}
-                            <div class="msg-time">🔒 {msg['msg_time']} · {msg['msg_date']}</div>
+                        <div class="msg-other">{decrypted}
+                            <div class="msg-time">{msg['msg_time']} — {msg['msg_date']}</div>
                         </div></div>""", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         with st.form(f"chat_form_{active_room}", clear_on_submit=True):
-            ci, cs = st.columns([5,1])
+            ci, cs = st.columns([5, 1])
             with ci:
-                new_msg = st.text_input("", placeholder=f"Message {room_info['name']}… (encrypted 🔒)", label_visibility="collapsed")
+                new_msg = st.text_input("", placeholder=f"Message {room_info['name']}...", label_visibility="collapsed")
             with cs:
                 send_btn = st.form_submit_button("Send")
 
@@ -1231,11 +1203,22 @@ def show_main_app():
             db_save_message(active_room, user, user_data["full_name"], encrypt_message(new_msg.strip()))
             st.rerun()
 
-        if st.button("🔄 Refresh Messages", key="refresh_chat"):
-            st.rerun()
+        col_r, col_s = st.columns([1, 4])
+        with col_r:
+            if st.button("Refresh", key="refresh_chat"):
+                st.rerun()
 
-        st.markdown("""<div style="background:rgba(156,39,176,0.06);border:1px solid rgba(156,39,176,0.15);border-radius:10px;padding:10px 14px;margin-top:12px;font-size:0.75rem;color:#CE93D8;text-align:center;">
-        🔒 Messages are end-to-end encrypted and saved securely to the database.</div>""", unsafe_allow_html=True)
+        st.markdown("""<div class="alert-success" style="margin-top:12px;">
+            <div class="alert-text">All messages are end-to-end encrypted and saved securely to the database.</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── FOOTER ──────────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="text-align:center;padding:32px 40px;font-size:0.78rem;color:#bbb;border-top:1px solid #f0f0f0;margin-top:48px;">
+        EcoPulse &nbsp;|&nbsp; Team GreenPulse &nbsp;|&nbsp; Elias Creations &nbsp;|&nbsp; Busitema University
+    </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ROUTER
@@ -1244,9 +1227,3 @@ if st.session_state.current_user is None:
     show_auth()
 else:
     show_main_app()
-
-st.markdown("""
-<hr style='border-color:rgba(76,175,80,0.1);margin:32px 0 16px;'>
-<p style='text-align:center;font-family:Space Mono,monospace;font-size:0.65rem;color:#37474F;letter-spacing:1px;'>
-ECOPULSE · Elias Creations · 0705046024 · POWERED BY GROQ + SUPABASE + OPEN-METEO + PEXELS
-</p>""", unsafe_allow_html=True)
