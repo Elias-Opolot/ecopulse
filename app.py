@@ -637,7 +637,7 @@ def show_auth():
 
     with right:
         st.markdown('<div class="auth-right">', unsafe_allow_html=True)
-        st.markdown('<span class="auth-brand">EcoPulse</span>', unsafe_allow_html=True)
+        st.image("your_logo.png", width=60) st.markdown('<span class="auth-brand">EcoPulse</span>', unsafe_allow_html=True)
 
         if st.session_state.auth_mode == "signin":
             st.markdown('<div class="auth-title">Welcome back</div>', unsafe_allow_html=True)
