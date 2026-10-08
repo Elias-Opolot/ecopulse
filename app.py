@@ -1030,7 +1030,7 @@ def show_auth():
             """
         <div class="auth-hero-tagline">
             <h1>Smart Farming Starts Here</h1>
-            <p>AI climate advice, weather alerts, a green marketplace and a farmer community — built for Uganda.</p>
+            <p>AI climate advice, weather alerts, a green marketplace and a farmer community built for Uganda.</p>
         </div>
         """,
             unsafe_allow_html=True,
